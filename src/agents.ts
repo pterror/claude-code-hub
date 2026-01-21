@@ -80,40 +80,48 @@ export class AgentManager {
     console.log(`Loaded ${stored.length} agents from database`);
   }
 
-  list(filter?: { source?: "hub" | "discovered" | "all" }): Agent[] {
+  list(filter?: { source?: "hub" | "discovered" | "all"; limit?: number; offset?: number }): { agents: Agent[]; total: number; hasMore: boolean } {
     const source = filter?.source || "all";
+    const limit = filter?.limit || 50;
+    const offset = filter?.offset || 0;
     const hubAgents = Array.from(this.agents.values());
 
+    let allAgents: Agent[];
+
     if (source === "hub") {
-      return hubAgents;
+      allAgents = hubAgents;
+    } else {
+      // Discover sessions from disk and merge
+      const discovered = discoverSessions();
+      const knownSessionIds = new Set(hubAgents.map(a => a.sessionId).filter(Boolean));
+
+      const discoveredAgents: Agent[] = discovered
+        .filter(s => !knownSessionIds.has(s.sessionId))
+        .map(s => ({
+          id: s.sessionId, // Use session ID as agent ID for discovered
+          cwd: s.cwd,
+          prompt: s.firstMessage || "(no prompt)",
+          status: "done" as const,
+          messages: [], // Lazy load on demand
+          createdAt: s.createdAt,
+          sessionId: s.sessionId,
+          capabilities: getDefaultCapabilities(),
+          source: "discovered" as const,
+        }));
+
+      if (source === "discovered") {
+        allAgents = discoveredAgents;
+      } else {
+        // Merge and sort by creation date
+        allAgents = [...hubAgents, ...discoveredAgents].sort(
+          (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+        );
+      }
     }
 
-    // Discover sessions from disk and merge
-    const discovered = discoverSessions();
-    const knownSessionIds = new Set(hubAgents.map(a => a.sessionId).filter(Boolean));
-
-    const discoveredAgents: Agent[] = discovered
-      .filter(s => !knownSessionIds.has(s.sessionId))
-      .map(s => ({
-        id: s.sessionId, // Use session ID as agent ID for discovered
-        cwd: s.cwd,
-        prompt: s.firstMessage || "(no prompt)",
-        status: "done" as const,
-        messages: [], // Lazy load on demand
-        createdAt: s.createdAt,
-        sessionId: s.sessionId,
-        capabilities: getDefaultCapabilities(),
-        source: "discovered" as const,
-      }));
-
-    if (source === "discovered") {
-      return discoveredAgents;
-    }
-
-    // Merge and sort by creation date
-    return [...hubAgents, ...discoveredAgents].sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    );
+    const total = allAgents.length;
+    const paginated = allAgents.slice(offset, offset + limit);
+    return { agents: paginated, total, hasMore: offset + limit < total };
   }
 
   get(id: string): Agent | undefined {

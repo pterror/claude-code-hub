@@ -147,8 +147,9 @@ function getFirstUserMessage(path: string): string {
 
 /**
  * Discover all Claude Code sessions on disk.
+ * Set readPrompts=true to read first message from each file (slower).
  */
-export function discoverSessions(): DiscoveredSession[] {
+export function discoverSessions(readPrompts = false): DiscoveredSession[] {
   const projectsDir = join(homedir(), ".claude", "projects");
 
   if (!existsSync(projectsDir)) {
@@ -185,7 +186,7 @@ export function discoverSessions(): DiscoveredSession[] {
           sessions.push({
             sessionId,
             cwd,
-            firstMessage: getFirstUserMessage(filePath),
+            firstMessage: readPrompts ? getFirstUserMessage(filePath) : "",
             createdAt: fileStat.birthtime,
             modifiedAt: fileStat.mtime,
           });

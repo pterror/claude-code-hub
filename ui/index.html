@@ -477,6 +477,10 @@
     let filterText = '';
     let sourceFilter = 'all';
     const agentElements = new Map(); // id -> DOM element
+    let hasMore = false;
+    let loading = false;
+    let currentOffset = 0;
+    const PAGE_SIZE = 50;
 
     // Load saved presets from localStorage
     let savedPresets = JSON.parse(localStorage.getItem('hub-presets') || '[]');
@@ -487,9 +491,26 @@
       return div.innerHTML;
     }
 
-    async function fetchAgents() {
-      const res = await fetch(`${API}/agents?source=${sourceFilter}`);
-      agents = await res.json();
+    async function fetchAgents(append = false) {
+      if (loading) return;
+      loading = true;
+
+      const offset = append ? currentOffset : 0;
+      const res = await fetch(`${API}/agents?source=${sourceFilter}&limit=${PAGE_SIZE}&offset=${offset}`);
+      const data = await res.json();
+
+      if (append) {
+        agents = [...agents, ...data.agents];
+      } else {
+        agents = data.agents;
+        // Clear old elements when refreshing
+        agentElements.forEach(el => el.remove());
+        agentElements.clear();
+      }
+
+      hasMore = data.hasMore;
+      currentOffset = agents.length;
+      loading = false;
       render();
     }
 
@@ -573,7 +594,18 @@
 
     document.getElementById('source-filter').addEventListener('change', e => {
       sourceFilter = e.target.value;
+      currentOffset = 0;
       fetchAgents();
+    });
+
+    // Infinite scroll
+    window.addEventListener('scroll', () => {
+      if (loading || !hasMore) return;
+      const scrollBottom = window.innerHeight + window.scrollY;
+      const docHeight = document.documentElement.scrollHeight;
+      if (scrollBottom >= docHeight - 200) {
+        fetchAgents(true);
+      }
     });
 
     function getPresetName(caps) {
@@ -686,12 +718,12 @@
           agentElements.set(agent.id, el);
         }
 
-        // Ensure correct order
-        const expectedPrev = prevEl;
+        // Ensure element is in DOM and in correct order
+        const inDom = el.parentElement === container;
         const actualPrev = el.previousElementSibling;
-        if (actualPrev !== expectedPrev) {
-          if (expectedPrev) {
-            expectedPrev.after(el);
+        if (!inDom || actualPrev !== prevEl) {
+          if (prevEl) {
+            prevEl.after(el);
           } else {
             container.prepend(el);
           }

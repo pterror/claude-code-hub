@@ -84,7 +84,10 @@ const server = Bun.serve({
 
     if (path === "/agents" && req.method === "GET") {
       const source = url.searchParams.get("source") as "hub" | "discovered" | "all" | null;
-      return Response.json(agents.list({ source: source || "all" }), { headers: corsHeaders });
+      const limit = parseInt(url.searchParams.get("limit") || "50");
+      const offset = parseInt(url.searchParams.get("offset") || "0");
+      const result = agents.list({ source: source || "all", limit, offset });
+      return Response.json(result, { headers: corsHeaders });
     }
 
     if (path === "/agents" && req.method === "POST") {
