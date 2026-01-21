@@ -227,6 +227,64 @@ function getToolClass(toolType) {
 }
 
 /**
+ * Strips line number prefixes from Read tool output
+ * Format: "     N→content" where N is line number
+ * @param {string} content
+ * @returns {string}
+ */
+function stripLineNumbers(content) {
+  return content.split('\n').map(line => {
+    // Match pattern: spaces + number + → + content
+    const match = line.match(/^\s*\d+→(.*)$/);
+    return match ? match[1] : line;
+  }).join('\n');
+}
+
+/**
+ * Gets highlight.js language from file extension
+ * @param {string} filePath
+ * @returns {string | undefined}
+ */
+function getLangFromPath(filePath) {
+  const ext = filePath.split('.').pop()?.toLowerCase();
+  /** @type {Record<string, string>} */
+  const extMap = {
+    js: 'javascript', ts: 'typescript', jsx: 'javascript', tsx: 'typescript',
+    py: 'python', rb: 'ruby', rs: 'rust', go: 'go', java: 'java',
+    c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', cs: 'csharp',
+    html: 'html', css: 'css', scss: 'scss', less: 'less',
+    json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'ini',
+    md: 'markdown', sh: 'bash', bash: 'bash', zsh: 'bash',
+    sql: 'sql', graphql: 'graphql', xml: 'xml', svg: 'xml',
+    dockerfile: 'dockerfile', makefile: 'makefile',
+  };
+  return ext ? extMap[ext] : undefined;
+}
+
+/**
+ * Highlights code using highlight.js if available
+ * @param {string} code
+ * @param {string | undefined} lang
+ * @returns {string}
+ */
+function highlightCode(code, lang) {
+  // @ts-ignore - hljs is loaded externally
+  if (typeof hljs === 'undefined') return escapeHtml(code);
+
+  try {
+    // @ts-ignore
+    if (lang && hljs.getLanguage(lang)) {
+      // @ts-ignore
+      return hljs.highlight(code, { language: lang }).value;
+    }
+    // @ts-ignore
+    return hljs.highlightAuto(code).value;
+  } catch {
+    return escapeHtml(code);
+  }
+}
+
+/**
  * @param {unknown} input
  * @param {string | undefined} result
  * @returns {string}
@@ -234,12 +292,16 @@ function getToolClass(toolType) {
 function renderReadTool(input, result) {
   const inp = /** @type {{file_path?: string}} */ (input);
   const filePath = inp?.file_path || 'unknown';
-  const content = result || '';
+  const rawContent = result || '';
+  const content = stripLineNumbers(rawContent);
+  const lang = getLangFromPath(filePath);
+  const truncated = content.length > 5000;
+  const displayContent = truncated ? content.slice(0, 5000) + '\n...(truncated)' : content;
 
   return `
     <div class="file-viewer">
       <div class="file-viewer-header">${escapeHtml(filePath)}</div>
-      <div class="file-viewer-content">${escapeHtml(content.slice(0, 5000))}${content.length > 5000 ? '\n...(truncated)' : ''}</div>
+      <pre class="file-viewer-content"><code class="hljs${lang ? ` language-${lang}` : ''}">${highlightCode(displayContent, lang)}</code></pre>
     </div>`;
 }
 
@@ -253,12 +315,13 @@ function renderEditTool(input, _result) {
   const filePath = inp?.file_path || 'unknown';
   const oldStr = inp?.old_string || '';
   const newStr = inp?.new_string || '';
+  const lang = getLangFromPath(filePath);
 
   return `
     <div class="diff-view">
       <div class="diff-header">${escapeHtml(filePath)}</div>
-      <div class="diff-old diff-content">- ${escapeHtml(oldStr)}</div>
-      <div class="diff-new diff-content">+ ${escapeHtml(newStr)}</div>
+      <pre class="diff-old diff-content"><code class="hljs">- ${highlightCode(oldStr, lang)}</code></pre>
+      <pre class="diff-new diff-content"><code class="hljs">+ ${highlightCode(newStr, lang)}</code></pre>
     </div>`;
 }
 
@@ -271,11 +334,14 @@ function renderWriteTool(input, _result) {
   const inp = /** @type {{file_path?: string, content?: string}} */ (input);
   const filePath = inp?.file_path || 'unknown';
   const content = inp?.content || '';
+  const lang = getLangFromPath(filePath);
+  const truncated = content.length > 3000;
+  const displayContent = truncated ? content.slice(0, 3000) + '\n...(truncated)' : content;
 
   return `
     <div class="file-viewer">
       <div class="file-viewer-header">Writing: ${escapeHtml(filePath)}</div>
-      <div class="file-viewer-content">${escapeHtml(content.slice(0, 3000))}${content.length > 3000 ? '\n...(truncated)' : ''}</div>
+      <pre class="file-viewer-content"><code class="hljs${lang ? ` language-${lang}` : ''}">${highlightCode(displayContent, lang)}</code></pre>
     </div>`;
 }
 
@@ -289,14 +355,16 @@ function renderBashTool(input, result) {
   const cmd = inp?.command || '';
   const output = result || '';
   const isError = output.includes('error:') || output.includes('Error:');
+  const truncated = output.length > 3000;
+  const displayOutput = truncated ? output.slice(0, 3000) + '\n...(truncated)' : output;
 
   return `
     <div class="terminal">
       <div class="terminal-header">
         <span class="terminal-prompt">$</span>
-        <span class="terminal-cmd">${escapeHtml(cmd)}</span>
+        <code class="terminal-cmd hljs language-bash">${highlightCode(cmd, 'bash')}</code>
       </div>
-      <div class="terminal-output ${isError ? 'terminal-error' : ''}">${escapeHtml(output.slice(0, 3000))}${output.length > 3000 ? '\n...(truncated)' : ''}</div>
+      <pre class="terminal-output ${isError ? 'terminal-error' : ''}">${escapeHtml(displayOutput)}</pre>
     </div>`;
 }
 

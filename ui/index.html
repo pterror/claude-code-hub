@@ -51,11 +51,15 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
     body {
       font-family: system-ui, -apple-system, sans-serif;
       background: var(--bg);
       color: var(--fg);
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
