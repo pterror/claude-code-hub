@@ -4,8 +4,11 @@
  * Spawns and tracks Claude Code agents via the Agent SDK.
  */
 
-// TODO: Uncomment when agent SDK is installed
-// import { query, ClaudeAgentOptions } from "@anthropic-ai/claude-agent-sdk";
+import {
+  unstable_v2_createSession,
+  unstable_v2_resumeSession,
+  type SDKMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 
 export interface Agent {
   id: string;
@@ -14,6 +17,7 @@ export interface Agent {
   status: "running" | "done" | "error" | "waiting";
   messages: AgentMessage[];
   createdAt: Date;
+  sessionId?: string;
 }
 
 export interface AgentMessage {
@@ -58,33 +62,38 @@ export class AgentManager {
 
   async message(id: string, prompt: string): Promise<{ ok: boolean }> {
     const agent = this.agents.get(id);
-    if (!agent) return { ok: false };
+    if (!agent || !agent.sessionId) return { ok: false };
 
-    // TODO: Send follow-up message to running agent
-    // This requires session resumption via the SDK
+    // Resume session and send follow-up
+    agent.status = "running";
+    this.broadcast({ type: "status", agentId: agent.id, status: "running" });
 
+    this.runFollowUp(agent, prompt);
     return { ok: true };
   }
 
   private async runAgent(agent: Agent) {
     try {
-      // TODO: Use actual Agent SDK when installed
-      // For now, simulate agent behavior
-      /*
-      for await (const message of query({
-        prompt: agent.prompt,
-        options: {
-          workingDirectory: agent.cwd,
-          allowedTools: ["Read", "Edit", "Bash", "Glob", "Grep"],
-        },
-      })) {
-        this.handleMessage(agent, message);
+      const session = unstable_v2_createSession({
+        cwd: agent.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        allowedTools: ["Read", "Edit", "Write", "Bash", "Glob", "Grep", "WebFetch", "WebSearch"],
+        settingSources: ["project"], // Load CLAUDE.md from agent's working directory
+      });
+
+      await session.send(agent.prompt);
+
+      for await (const msg of session.stream()) {
+        // Capture session ID
+        if (msg.session_id && !agent.sessionId) {
+          agent.sessionId = msg.session_id;
+        }
+
+        this.handleMessage(agent, msg);
       }
-      */
 
-      // Placeholder: simulate agent running
-      await this.simulateAgent(agent);
-
+      session.close();
       agent.status = "done";
       this.broadcast({ type: "done", agentId: agent.id });
     } catch (error) {
@@ -98,23 +107,78 @@ export class AgentManager {
     }
   }
 
-  private async simulateAgent(agent: Agent) {
-    // Placeholder simulation until SDK is wired up
-    const steps = [
-      "Reading project files...",
-      "Analyzing codebase...",
-      "Making changes...",
-      "Done.",
-    ];
+  private async runFollowUp(agent: Agent, prompt: string) {
+    try {
+      const session = unstable_v2_resumeSession(agent.sessionId!, {
+        cwd: agent.cwd,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        allowedTools: ["Read", "Edit", "Write", "Bash", "Glob", "Grep", "WebFetch", "WebSearch"],
+        settingSources: ["project"],
+      });
 
-    for (const step of steps) {
-      await new Promise((r) => setTimeout(r, 1000));
+      await session.send(prompt);
+
+      for await (const msg of session.stream()) {
+        this.handleMessage(agent, msg);
+      }
+
+      session.close();
+      agent.status = "done";
+      this.broadcast({ type: "done", agentId: agent.id });
+    } catch (error) {
+      agent.status = "error";
       agent.messages.push({
-        type: "assistant",
-        content: step,
+        type: "error",
+        content: String(error),
         timestamp: new Date(),
       });
-      this.broadcast({ type: "message", agentId: agent.id, content: step });
+      this.broadcast({ type: "error", agentId: agent.id, error: String(error) });
+    }
+  }
+
+  private handleMessage(agent: Agent, msg: SDKMessage) {
+    if (msg.type === "assistant" && msg.message?.content) {
+      for (const block of msg.message.content) {
+        if ("text" in block && block.text) {
+          agent.messages.push({
+            type: "assistant",
+            content: block.text,
+            timestamp: new Date(),
+          });
+          this.broadcast({
+            type: "message",
+            agentId: agent.id,
+            messageType: "assistant",
+            content: block.text,
+          });
+        } else if ("name" in block) {
+          agent.messages.push({
+            type: "tool",
+            content: `Tool: ${block.name}`,
+            timestamp: new Date(),
+          });
+          this.broadcast({
+            type: "message",
+            agentId: agent.id,
+            messageType: "tool",
+            content: `Tool: ${block.name}`,
+          });
+        }
+      }
+    } else if (msg.type === "result") {
+      const content = msg.subtype === "success" ? msg.result : `Error: ${msg.subtype}`;
+      agent.messages.push({
+        type: "result",
+        content,
+        timestamp: new Date(),
+      });
+      this.broadcast({
+        type: "message",
+        agentId: agent.id,
+        messageType: "result",
+        content,
+      });
     }
   }
 

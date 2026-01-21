@@ -13,9 +13,16 @@ const agents = new AgentManager();
 const server = Bun.serve({
   port: PORT,
 
-  async fetch(req) {
+  async fetch(req, server) {
     const url = new URL(req.url);
     const path = url.pathname;
+
+    // WebSocket upgrade
+    if (path === "/ws") {
+      const upgraded = server.upgrade(req);
+      if (upgraded) return undefined;
+      return new Response("WebSocket upgrade failed", { status: 400 });
+    }
 
     // CORS for mobile access
     const corsHeaders = {
