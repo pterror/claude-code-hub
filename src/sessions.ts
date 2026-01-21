@@ -117,37 +117,27 @@ export function loadSessionMessages(cwd: string, sessionId: string): AgentMessag
 }
 
 /**
- * Extract session summary or first user message (for preview).
- * Only reads first 16KB of file for speed.
+ * Extract first user message from session file (for preview).
+ * Only reads first 4KB for speed - user message is always near start.
  */
-function getSessionSummary(filePath: string): string {
+function getFirstUserMessage(filePath: string): string {
   try {
     const fd = openSync(filePath, "r");
-    const buffer = Buffer.alloc(16384);
-    const bytesRead = readSync(fd, buffer, 0, 16384, 0);
+    const buffer = Buffer.alloc(4096);
+    const bytesRead = readSync(fd, buffer, 0, 4096, 0);
     closeSync(fd);
 
     const content = buffer.toString("utf-8", 0, bytesRead);
     const lines = content.split("\n");
 
-    let firstUserMessage = "";
-
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line);
-
-        // Prefer summary entry if found
-        if (entry.type === "summary" && entry.summary) {
-          return entry.summary;
-        }
-
-        // Capture first user message as fallback
-        if (!firstUserMessage && entry.type === "user" && entry.message?.content) {
+        if (entry.type === "user" && entry.message?.content) {
           for (const block of entry.message.content) {
             if (block.type === "text" && block.text) {
-              firstUserMessage = block.text.slice(0, 200);
-              break;
+              return block.text.slice(0, 200);
             }
           }
         }
@@ -155,8 +145,6 @@ function getSessionSummary(filePath: string): string {
         continue;
       }
     }
-
-    return firstUserMessage;
   } catch {
     // Ignore read errors
   }
@@ -204,7 +192,7 @@ export function discoverSessions(readPrompts = true): DiscoveredSession[] {
           sessions.push({
             sessionId,
             cwd,
-            firstMessage: readPrompts ? getSessionSummary(filePath) : "",
+            firstMessage: readPrompts ? getFirstUserMessage(filePath) : "",
             createdAt: fileStat.birthtime,
             modifiedAt: fileStat.mtime,
           });
