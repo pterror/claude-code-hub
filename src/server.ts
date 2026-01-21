@@ -183,6 +183,11 @@ const server = Bun.serve({
         headers: { "Content-Type": "application/javascript" },
       });
     }
+    if (path === "/marked.min.js") {
+      return new Response(Bun.file("ui/marked.min.js"), {
+        headers: { "Content-Type": "application/javascript" },
+      });
+    }
 
     return new Response("Not found", { status: 404 });
   },

@@ -38,6 +38,8 @@ export interface AgentMessage {
   type: "assistant" | "tool" | "result" | "error";
   content: string;
   timestamp: Date;
+  input?: unknown;
+  result?: string;
 }
 
 type WebSocketClient = { send: (data: string) => void };
@@ -366,6 +368,9 @@ export class AgentManager {
     }
   }
 
+  // Track tool calls by id to match with results
+  private pendingToolCalls: Map<string, number> = new Map(); // tool_use_id -> agent message index
+
   private handleMessage(agent: Agent, msg: SDKMessage) {
     if (msg.type === "assistant" && msg.message?.content) {
       for (const block of msg.message.content) {
@@ -381,18 +386,53 @@ export class AgentManager {
             messageType: "assistant",
             content: block.text,
           });
-        } else if ("name" in block) {
+        } else if ("name" in block && "id" in block) {
+          const toolBlock = block as { name: string; id: string; input?: unknown };
+          const msgIdx = agent.messages.length;
           agent.messages.push({
             type: "tool",
-            content: `Tool: ${block.name}`,
+            content: `Tool: ${toolBlock.name}`,
             timestamp: new Date(),
+            input: toolBlock.input,
           });
           this.broadcast({
             type: "message",
             agentId: agent.id,
             messageType: "tool",
-            content: `Tool: ${block.name}`,
+            content: `Tool: ${toolBlock.name}`,
+            input: toolBlock.input,
           });
+          // Track for result matching
+          this.pendingToolCalls.set(`${agent.id}:${toolBlock.id}`, msgIdx);
+        }
+      }
+    } else if (msg.type === "user" && msg.message?.content) {
+      // Handle tool results from user messages
+      for (const block of msg.message.content) {
+        if ("type" in block && block.type === "tool_result" && "tool_use_id" in block) {
+          const resultBlock = block as { tool_use_id: string; content?: unknown };
+          const key = `${agent.id}:${resultBlock.tool_use_id}`;
+          const msgIdx = this.pendingToolCalls.get(key);
+          if (msgIdx !== undefined && agent.messages[msgIdx]) {
+            // Extract result text
+            let resultText = "";
+            if (typeof resultBlock.content === "string") {
+              resultText = resultBlock.content;
+            } else if (Array.isArray(resultBlock.content)) {
+              resultText = (resultBlock.content as Array<{ type: string; text?: string }>)
+                .filter(c => c.type === "text" && c.text)
+                .map(c => c.text)
+                .join("\n");
+            }
+            agent.messages[msgIdx].result = resultText;
+            this.broadcast({
+              type: "tool-result",
+              agentId: agent.id,
+              toolUseId: resultBlock.tool_use_id,
+              result: resultText,
+            });
+            this.pendingToolCalls.delete(key);
+          }
         }
       }
     } else if (msg.type === "result") {

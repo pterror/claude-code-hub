@@ -51,17 +51,22 @@ export function getSessionPath(cwd: string, sessionId: string): string {
   return join(claudeDir, `${sessionId}.jsonl`);
 }
 
+interface ContentBlock {
+  type: string;
+  text?: string;
+  name?: string;
+  id?: string;
+  input?: unknown;
+  tool_use_id?: string;
+  content?: string | Array<{ type: string; text?: string }>;
+}
+
 interface SessionEntry {
   type: "user" | "assistant" | "summary" | "queue-operation" | "file-history-snapshot";
   timestamp?: string;
   message?: {
     role: string;
-    content: Array<{
-      type: string;
-      text?: string;
-      name?: string;
-      input?: unknown;
-    }>;
+    content: ContentBlock[];
   };
 }
 
@@ -76,6 +81,8 @@ export function loadSessionMessages(cwd: string, sessionId: string): AgentMessag
   }
 
   const messages: AgentMessage[] = [];
+  // Track pending tool calls by id to match with results
+  const pendingTools = new Map<string, number>(); // tool_use_id -> message index
 
   try {
     const content = readFileSync(path, "utf-8");
@@ -93,6 +100,23 @@ export function loadSessionMessages(cwd: string, sessionId: string): AgentMessag
                 content: `[User]: ${block.text}`,
                 timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date(),
               });
+            } else if (block.type === "tool_result" && block.tool_use_id) {
+              // Match tool result to pending tool call
+              const toolIdx = pendingTools.get(block.tool_use_id);
+              if (toolIdx !== undefined && messages[toolIdx]) {
+                // Extract result text
+                let resultText = "";
+                if (typeof block.content === "string") {
+                  resultText = block.content;
+                } else if (Array.isArray(block.content)) {
+                  resultText = block.content
+                    .filter(c => c.type === "text" && c.text)
+                    .map(c => c.text)
+                    .join("\n");
+                }
+                messages[toolIdx].result = resultText;
+                pendingTools.delete(block.tool_use_id);
+              }
             }
           }
         } else if (entry.type === "assistant" && entry.message?.content) {
@@ -104,11 +128,17 @@ export function loadSessionMessages(cwd: string, sessionId: string): AgentMessag
                 timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date(),
               });
             } else if (block.type === "tool_use" && block.name) {
+              const idx = messages.length;
               messages.push({
                 type: "tool",
                 content: `Tool: ${block.name}`,
                 timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date(),
+                input: block.input,
               });
+              // Track for result matching
+              if (block.id) {
+                pendingTools.set(block.id, idx);
+              }
             }
           }
         }

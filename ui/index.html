@@ -11,6 +11,7 @@
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
   <link rel="manifest" href="/manifest.json">
+  <script src="/marked.min.js"></script>
   <title>claude-code-hub</title>
   <style>
     :root {
@@ -214,9 +215,113 @@
       margin-left: 2rem;
     }
 
+    .message-queued {
+      background: var(--glass-bg);
+      border: 1px dashed var(--glass-border);
+      color: var(--fg-muted);
+      margin-left: 2rem;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .message-queued:hover {
+      background: var(--glass-hover);
+    }
+
+    .message-queued::before {
+      content: '⏳ Queued';
+      font-size: 0.65rem;
+      opacity: 0.7;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .message-queued:hover::after {
+      content: '(click to edit)';
+      font-size: 0.65rem;
+      opacity: 0.7;
+      margin-left: 0.5rem;
+    }
+
+    .message-sending {
+      background: var(--primary);
+      color: white;
+      margin-left: 2rem;
+      opacity: 0.7;
+    }
+
+    .message-sending::before {
+      content: '⏳ Sending...';
+      font-size: 0.65rem;
+      opacity: 0.7;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
     .message-assistant {
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
+    }
+
+    /* Markdown styling */
+    .message-assistant p {
+      margin: 0 0 0.5rem 0;
+    }
+    .message-assistant p:last-child {
+      margin-bottom: 0;
+    }
+    .message-assistant h1, .message-assistant h2, .message-assistant h3 {
+      margin: 0.75rem 0 0.5rem 0;
+      font-weight: 600;
+    }
+    .message-assistant h1 { font-size: 1.1rem; }
+    .message-assistant h2 { font-size: 1rem; }
+    .message-assistant h3 { font-size: 0.9rem; }
+    .message-assistant code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.8rem;
+    }
+    .message-assistant pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.75rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 0.5rem 0;
+    }
+    .message-assistant pre code {
+      background: none;
+      padding: 0;
+    }
+    .message-assistant ul, .message-assistant ol {
+      margin: 0.5rem 0;
+      padding-left: 1.5rem;
+    }
+    .message-assistant li {
+      margin: 0.25rem 0;
+    }
+    .message-assistant blockquote {
+      border-left: 3px solid var(--fg-muted);
+      margin: 0.5rem 0;
+      padding-left: 0.75rem;
+      color: var(--fg-muted);
+    }
+    .message-assistant a {
+      color: var(--primary);
+    }
+    .message-assistant table {
+      border-collapse: collapse;
+      margin: 0.5rem 0;
+      font-size: 0.8rem;
+    }
+    .message-assistant th, .message-assistant td {
+      border: 1px solid var(--glass-border);
+      padding: 0.25rem 0.5rem;
+    }
+    .message-assistant th {
+      background: rgba(0, 0, 0, 0.2);
     }
 
     .message-tool {
@@ -874,7 +979,9 @@
     let activeTabId = null;
 
     // Message queues per session
-    const messageQueues = new Map(); // id -> string[]
+    // Each queue entry: { id: string, message: string, status: 'queued'|'sending' }
+    const messageQueues = new Map(); // agentId -> Array<{id, message, status}>
+    const processingQueue = new Set(); // agentIds currently being processed
 
     // Load default isolation preset
     const defaultPreset = localStorage.getItem('hub-default-preset') || 'isolated';
@@ -1082,7 +1189,9 @@
         } else if (m.content.startsWith('[User]:')) {
           return `<div class="message message-user">${escapeHtml(m.content.slice(7).trim())}</div>`;
         } else {
-          return `<div class="message message-assistant">${escapeHtml(m.content)}</div>`;
+          // Render markdown for assistant messages
+          const html = typeof marked !== 'undefined' ? marked.parse(m.content) : escapeHtml(m.content);
+          return `<div class="message message-assistant">${html}</div>`;
         }
       }).join('');
     }
@@ -1208,37 +1317,127 @@
     }
 
     // Send message to session
-    async function sendMessage(id) {
-      const input = document.getElementById(`input-${id}`);
+    function generateQueueId() {
+      return 'q-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    }
+
+    async function sendMessage(agentId) {
+      const input = document.getElementById(`input-${agentId}`);
       const message = input.value.trim();
       if (!message) return;
 
       input.value = '';
-      input.disabled = true;
 
       // Add to queue
-      if (!messageQueues.has(id)) messageQueues.set(id, []);
-      messageQueues.get(id).push(message);
+      if (!messageQueues.has(agentId)) messageQueues.set(agentId, []);
+      const queueEntry = { id: generateQueueId(), message, status: 'queued' };
+      messageQueues.get(agentId).push(queueEntry);
 
-      // Show in UI immediately
-      const messagesEl = document.getElementById(`messages-${id}`);
-      if (messagesEl) {
-        messagesEl.innerHTML += `<div class="message message-user">${escapeHtml(message)}</div>`;
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+      // Render queued message
+      renderQueuedMessage(agentId, queueEntry);
+
+      // Process queue
+      processQueue(agentId);
+    }
+
+    function renderQueuedMessage(agentId, entry) {
+      const messagesEl = document.getElementById(`messages-${agentId}`);
+      if (!messagesEl) return;
+
+      const div = document.createElement('div');
+      div.className = `message message-${entry.status}`;
+      div.id = `queue-${entry.id}`;
+      div.dataset.queueId = entry.id;
+      div.dataset.agentId = agentId;
+      div.innerHTML = escapeHtml(entry.message);
+
+      if (entry.status === 'queued') {
+        div.onclick = () => unqueueMessage(agentId, entry.id);
+      }
+
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function unqueueMessage(agentId, queueId) {
+      const queue = messageQueues.get(agentId);
+      if (!queue) return;
+
+      const idx = queue.findIndex(e => e.id === queueId);
+      if (idx === -1) return;
+
+      const entry = queue[idx];
+      if (entry.status !== 'queued') return; // Can only unqueue if not yet sending
+
+      // Remove from queue
+      queue.splice(idx, 1);
+
+      // Remove from UI
+      const el = document.getElementById(`queue-${queueId}`);
+      if (el) el.remove();
+
+      // Put back in input
+      const input = document.getElementById(`input-${agentId}`);
+      if (input) {
+        input.value = entry.message;
+        input.focus();
+      }
+    }
+
+    async function processQueue(agentId) {
+      // Prevent concurrent processing for same agent
+      if (processingQueue.has(agentId)) return;
+
+      const queue = messageQueues.get(agentId);
+      if (!queue || queue.length === 0) return;
+
+      // Find first queued item
+      const entry = queue.find(e => e.status === 'queued');
+      if (!entry) return;
+
+      processingQueue.add(agentId);
+      entry.status = 'sending';
+
+      // Update UI to show sending
+      const el = document.getElementById(`queue-${entry.id}`);
+      if (el) {
+        el.className = 'message message-sending';
+        el.onclick = null;
       }
 
       try {
-        await fetch(`${API}/agents/${id}/message`, {
+        await fetch(`${API}/agents/${agentId}/message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: message }),
+          body: JSON.stringify({ prompt: entry.message }),
         });
+
+        // Mark as sent, update UI
+        if (el) {
+          el.className = 'message message-user';
+          el.removeAttribute('id');
+        }
+
+        // Remove from queue
+        const idx = queue.indexOf(entry);
+        if (idx !== -1) queue.splice(idx, 1);
+
       } catch (err) {
         console.error('Failed to send message:', err);
+        // Revert to queued state on error
+        entry.status = 'queued';
+        if (el) {
+          el.className = 'message message-queued';
+          el.onclick = () => unqueueMessage(agentId, entry.id);
+        }
       }
 
-      input.disabled = false;
-      input.focus();
+      processingQueue.delete(agentId);
+
+      // Process next item if any
+      if (queue.some(e => e.status === 'queued')) {
+        processQueue(agentId);
+      }
     }
 
     // Tab click handling
@@ -1573,9 +1772,9 @@
             // Build message object with tool info if present
             const msg = {
               content: data.content,
-              type: data.toolName ? 'tool' : (data.content.startsWith('[User]:') ? 'user' : 'assistant'),
-              input: data.toolInput,
-              result: data.toolResult,
+              type: data.messageType || 'assistant',
+              input: data.input,
+              result: data.result,
             };
             agent.messages.push(msg);
             if (data.tokens) agent.tokens = data.tokens;
@@ -1592,6 +1791,26 @@
             const tab = openTabs.get(data.agentId);
             if (tab) {
               tab.agent.messages = agent.messages;
+            }
+          }
+        } else if (data.type === 'tool-result') {
+          // Update existing tool message with its result
+          const agent = agents.find(a => a.id === data.agentId);
+          if (agent) {
+            // Find the tool message that matches (search from end, most recent first)
+            for (let i = agent.messages.length - 1; i >= 0; i--) {
+              const msg = agent.messages[i];
+              if (msg.type === 'tool' && !msg.result) {
+                msg.result = data.result;
+                break;
+              }
+            }
+
+            // Re-render messages
+            const messagesEl = document.getElementById(`messages-${data.agentId}`);
+            if (messagesEl) {
+              messagesEl.innerHTML = formatMessages(agent.messages);
+              messagesEl.scrollTop = messagesEl.scrollHeight;
             }
           }
         } else if (data.type === 'done' || data.type === 'error') {
