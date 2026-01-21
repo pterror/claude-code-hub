@@ -61,13 +61,25 @@ interface ContentBlock {
   content?: string | Array<{ type: string; text?: string }>;
 }
 
+interface ToolUseResult {
+  file?: {
+    filePath?: string;
+    startLine?: number;
+    totalLines?: number;
+    numLines?: number;
+  };
+  answers?: Record<string, string>; // For AskUserQuestion
+}
+
 interface SessionEntry {
   type: "user" | "assistant" | "summary" | "queue-operation" | "file-history-snapshot";
   timestamp?: string;
   message?: {
     role: string;
-    content: ContentBlock[];
+    content: string | ContentBlock[];
   };
+  toolUseResult?: ToolUseResult;
+  sourceToolAssistantUUID?: string;
 }
 
 /**
@@ -93,11 +105,19 @@ export function loadSessionMessages(cwd: string, sessionId: string): AgentMessag
         const entry: SessionEntry = JSON.parse(line);
 
         if (entry.type === "user" && entry.message?.content) {
-          for (const block of entry.message.content) {
+          const contentBlocks = typeof entry.message.content === "string"
+            ? [{ type: "text", text: entry.message.content }]
+            : entry.message.content;
+
+          for (const block of contentBlocks) {
             if (block.type === "text" && block.text) {
+              // Skip meta messages like command outputs
+              if (block.text.includes("<local-command") || block.text.includes("<command-name>")) {
+                continue;
+              }
               messages.push({
-                type: "assistant", // We show user messages as context
-                content: `[User]: ${block.text}`,
+                type: "user",
+                content: block.text,
                 timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date(),
               });
             } else if (block.type === "tool_result" && block.tool_use_id) {
@@ -115,12 +135,26 @@ export function loadSessionMessages(cwd: string, sessionId: string): AgentMessag
                     .join("\n");
                 }
                 messages[toolIdx].result = resultText;
+
+                // Add metadata from toolUseResult if available
+                if (entry.toolUseResult?.file) {
+                  messages[toolIdx].startLine = entry.toolUseResult.file.startLine;
+                  messages[toolIdx].totalLines = entry.toolUseResult.file.totalLines;
+                }
+                if (entry.toolUseResult?.answers) {
+                  messages[toolIdx].answers = entry.toolUseResult.answers;
+                }
+
                 pendingTools.delete(block.tool_use_id);
               }
             }
           }
         } else if (entry.type === "assistant" && entry.message?.content) {
-          for (const block of entry.message.content) {
+          const contentBlocks = typeof entry.message.content === "string"
+            ? [{ type: "text", text: entry.message.content }]
+            : entry.message.content;
+
+          for (const block of contentBlocks) {
             if (block.type === "text" && block.text) {
               messages.push({
                 type: "assistant",

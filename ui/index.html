@@ -461,6 +461,20 @@
       color: var(--fg-muted);
     }
 
+    .ask-option-selected {
+      background: rgba(244, 114, 182, 0.2);
+      border-color: #f472b6;
+    }
+
+    .ask-answer {
+      margin-top: 0.5rem;
+      padding: 0.4rem 0.6rem;
+      background: rgba(34, 197, 94, 0.15);
+      border-radius: 4px;
+      font-size: 0.75rem;
+      color: var(--success);
+    }
+
     .tool-header {
       display: flex;
       justify-content: space-between;
@@ -669,8 +683,16 @@
       background: rgba(0, 0, 0, 0.2);
       font-family: ui-monospace, monospace;
       font-size: 0.7rem;
-      color: #ec4899;
       word-break: break-all;
+    }
+
+    .web-url a {
+      color: #ec4899;
+      text-decoration: none;
+    }
+
+    .web-url a:hover {
+      text-decoration: underline;
     }
 
     .web-content {

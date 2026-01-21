@@ -26,11 +26,14 @@
 
 /**
  * @typedef {Object} AgentMessage
- * @property {'assistant' | 'tool' | 'result' | 'error'} type
+ * @property {'assistant' | 'tool' | 'result' | 'error' | 'user'} type
  * @property {string} content
  * @property {Date} [timestamp]
  * @property {unknown} [input]
  * @property {string} [result]
+ * @property {number} [startLine]
+ * @property {number} [totalLines]
+ * @property {Record<string, string>} [answers]
  */
 
 /**
@@ -357,25 +360,29 @@ function getToolParamSummary(toolType, input) {
 /**
  * @param {unknown} input
  * @param {string | undefined} result
+ * @param {{startLine?: number, totalLines?: number}} [meta]
  * @returns {string}
  */
-function renderReadTool(input, result) {
+function renderReadTool(input, result, meta) {
   const inp = /** @type {{file_path?: string, offset?: number, limit?: number}} */ (input);
   const filePath = inp?.file_path || 'unknown';
-  const offset = inp?.offset;
-  const limit = inp?.limit;
   const rawContent = stripSystemReminders(result || '');
   const content = stripLineNumbers(rawContent);
   const lang = getLangFromPath(filePath);
   const truncated = content.length > 5000;
   const displayContent = truncated ? content.slice(0, 5000) + '\n...(truncated)' : content;
 
-  // Build header with optional line range
+  // Build header with optional line range from metadata
   let header = escapeHtml(filePath);
-  if (offset !== undefined && limit !== undefined) {
-    header += ` <span style="opacity: 0.6">(lines ${offset + 1}-${offset + limit})</span>`;
-  } else if (offset !== undefined) {
-    header += ` <span style="opacity: 0.6">(from line ${offset + 1})</span>`;
+  const startLine = meta?.startLine ?? inp?.offset;
+  const totalLines = meta?.totalLines;
+  const numLines = content.split('\n').length;
+
+  if (startLine !== undefined && totalLines !== undefined) {
+    const endLine = Math.min(startLine + numLines - 1, totalLines);
+    header += ` <span style="opacity: 0.6">(lines ${startLine}-${endLine} of ${totalLines})</span>`;
+  } else if (startLine !== undefined && startLine > 1) {
+    header += ` <span style="opacity: 0.6">(from line ${startLine})</span>`;
   }
 
   return `
@@ -503,7 +510,7 @@ function renderWebTool(input, result) {
 
   return `
     <div class="web-result">
-      <div class="web-url">${escapeHtml(url)}</div>
+      <div class="web-url"><a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a></div>
       <div class="web-content">${escapeHtml(content.slice(0, 1500))}${content.length > 1500 ? '...' : ''}</div>
     </div>`;
 }
@@ -540,7 +547,13 @@ function renderTaskTool(input, result) {
  * @param {string | undefined} _result
  * @returns {string}
  */
-function renderAskTool(input, _result) {
+/**
+ * @param {unknown} input
+ * @param {string | undefined} _result
+ * @param {Record<string, string>} [answers]
+ * @returns {string}
+ */
+function renderAskTool(input, _result, answers) {
   const inp = /** @type {{questions?: AskQuestion[]}} */ (input);
   const questions = inp?.questions || [];
 
@@ -548,20 +561,23 @@ function renderAskTool(input, _result) {
     return '<div class="ask-empty">No questions</div>';
   }
 
-  return questions.map(q => `
+  return questions.map((q, idx) => {
+    const answer = answers?.[String(idx)] || answers?.[q.header || ''];
+    return `
     <div class="ask-question">
       <div class="ask-header">${escapeHtml(q.header || '')}</div>
       <div class="ask-text">${escapeHtml(q.question || '')}</div>
       <div class="ask-options">
         ${(q.options || []).map(opt => `
-          <div class="ask-option">
+          <div class="ask-option${answer === opt.label ? ' ask-option-selected' : ''}">
             <span class="ask-option-label">${escapeHtml(opt.label)}</span>
             <span class="ask-option-desc">${escapeHtml(opt.description || '')}</span>
           </div>
         `).join('')}
       </div>
+      ${answer ? `<div class="ask-answer">Answer: ${escapeHtml(answer)}</div>` : ''}
     </div>
-  `).join('');
+  `}).join('');
 }
 
 /**
@@ -602,7 +618,10 @@ function formatMessages(messages) {
       let toolContent;
       switch (toolType) {
         case 'read':
-          toolContent = renderReadTool(m.input, m.result);
+          toolContent = renderReadTool(m.input, m.result, {
+            startLine: m.startLine,
+            totalLines: m.totalLines,
+          });
           break;
         case 'edit':
           toolContent = renderEditTool(m.input, m.result);
@@ -626,7 +645,7 @@ function formatMessages(messages) {
           toolContent = renderTaskTool(m.input, m.result);
           break;
         case 'ask':
-          toolContent = renderAskTool(m.input, m.result);
+          toolContent = renderAskTool(m.input, m.result, m.answers);
           break;
         default:
           toolContent = renderGenericTool(toolName, m.input, m.result);
@@ -640,7 +659,10 @@ function formatMessages(messages) {
         </div>
         <div class="tool-content">${toolContent}</div>
       </div>`;
+    } else if (m.type === 'user') {
+      return `<div class="message message-user">${escapeHtml(m.content)}</div>`;
     } else if (m.content.startsWith('[User]:')) {
+      // Legacy format
       return `<div class="message message-user">${escapeHtml(m.content.slice(7).trim())}</div>`;
     } else {
       // Render markdown for assistant messages

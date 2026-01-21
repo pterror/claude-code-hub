@@ -35,11 +35,16 @@ export interface Agent {
 }
 
 export interface AgentMessage {
-  type: "assistant" | "tool" | "result" | "error";
+  type: "assistant" | "tool" | "result" | "error" | "user";
   content: string;
   timestamp: Date;
   input?: unknown;
   result?: string;
+  // Read tool metadata
+  startLine?: number;
+  totalLines?: number;
+  // AskUserQuestion answers
+  answers?: Record<string, string>;
 }
 
 type WebSocketClient = { send: (data: string) => void };
