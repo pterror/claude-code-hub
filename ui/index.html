@@ -517,6 +517,44 @@
       display: none;
     }
 
+    /* Collapsible turns */
+    .turn {
+      margin-bottom: 0.5rem;
+    }
+
+    .turn-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.7rem;
+      color: var(--fg-muted);
+      cursor: pointer;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+    }
+
+    .turn-header:hover {
+      background: var(--glass-hover);
+    }
+
+    .turn-toggle {
+      font-size: 0.6rem;
+      transition: transform 0.15s ease;
+    }
+
+    .turn.collapsed .turn-toggle {
+      transform: rotate(180deg);
+    }
+
+    .turn.collapsed .turn-content {
+      display: none;
+    }
+
+    .turn-summary {
+      opacity: 0.7;
+    }
+
     /* File viewer (Read) */
     .file-viewer {
       background: rgba(0, 0, 0, 0.2);

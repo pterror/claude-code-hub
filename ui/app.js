@@ -602,74 +602,139 @@ function renderGenericTool(_toolName, input, result) {
 // ============================================================================
 
 /**
+ * Renders a single message
+ * @param {AgentMessage} m
+ * @param {number} i
+ * @returns {string}
+ */
+function renderMessage(m, i) {
+  if (m.type === 'tool') {
+    const toolName = m.content.replace('Tool: ', '');
+    const toolType = getToolType(toolName);
+    const toolClass = getToolClass(toolType);
+
+    let toolContent;
+    switch (toolType) {
+      case 'read':
+        toolContent = renderReadTool(m.input, m.result, {
+          startLine: m.startLine,
+          totalLines: m.totalLines,
+        });
+        break;
+      case 'edit':
+        toolContent = renderEditTool(m.input, m.result);
+        break;
+      case 'write':
+        toolContent = renderWriteTool(m.input, m.result);
+        break;
+      case 'bash':
+        toolContent = renderBashTool(m.input, m.result);
+        break;
+      case 'glob':
+        toolContent = renderGlobTool(m.input, m.result);
+        break;
+      case 'grep':
+        toolContent = renderGrepTool(m.input, m.result);
+        break;
+      case 'web':
+        toolContent = renderWebTool(m.input, m.result);
+        break;
+      case 'task':
+        toolContent = renderTaskTool(m.input, m.result);
+        break;
+      case 'ask':
+        toolContent = renderAskTool(m.input, m.result, m.answers);
+        break;
+      default:
+        toolContent = renderGenericTool(toolName, m.input, m.result);
+    }
+
+    const paramSummary = getToolParamSummary(toolType, m.input);
+    return `<div class="message message-tool ${toolClass}" data-idx="${i}">
+      <div class="tool-header">
+        <span class="tool-name">${escapeHtml(toolName)}${paramSummary ? ` <span class="tool-param">${escapeHtml(paramSummary)}</span>` : ''}</span>
+        <span class="tool-toggle">\u25B2</span>
+      </div>
+      <div class="tool-content">${toolContent}</div>
+    </div>`;
+  } else if (m.type === 'user') {
+    return `<div class="message message-user">${escapeHtml(m.content)}</div>`;
+  } else if (m.content.startsWith('[User]:')) {
+    // Legacy format
+    return `<div class="message message-user">${escapeHtml(m.content.slice(7).trim())}</div>`;
+  } else {
+    // Render markdown for assistant messages
+    // @ts-ignore - marked is loaded externally
+    const html = typeof marked !== 'undefined' ? marked.parse(m.content) : escapeHtml(m.content);
+    return `<div class="message message-assistant">${html}</div>`;
+  }
+}
+
+/**
  * Formats agent messages for display with dedicated tool UIs
+ * Groups messages into collapsible turns (agent responses between user messages)
  * @param {AgentMessage[] | undefined} messages
  * @returns {string}
  */
 function formatMessages(messages) {
   if (!messages || messages.length === 0) return '<div class="empty">No messages yet</div>';
 
-  return messages.map((m, i) => {
-    if (m.type === 'tool') {
-      const toolName = m.content.replace('Tool: ', '');
-      const toolType = getToolType(toolName);
-      const toolClass = getToolClass(toolType);
+  // Group messages into turns: each turn starts with a user message
+  /** @type {{userMsg: AgentMessage | null, agentMsgs: AgentMessage[], startIdx: number}[]} */
+  const turns = [];
+  /** @type {AgentMessage[]} */
+  let currentAgentMsgs = [];
+  let startIdx = 0;
 
-      let toolContent;
-      switch (toolType) {
-        case 'read':
-          toolContent = renderReadTool(m.input, m.result, {
-            startLine: m.startLine,
-            totalLines: m.totalLines,
-          });
-          break;
-        case 'edit':
-          toolContent = renderEditTool(m.input, m.result);
-          break;
-        case 'write':
-          toolContent = renderWriteTool(m.input, m.result);
-          break;
-        case 'bash':
-          toolContent = renderBashTool(m.input, m.result);
-          break;
-        case 'glob':
-          toolContent = renderGlobTool(m.input, m.result);
-          break;
-        case 'grep':
-          toolContent = renderGrepTool(m.input, m.result);
-          break;
-        case 'web':
-          toolContent = renderWebTool(m.input, m.result);
-          break;
-        case 'task':
-          toolContent = renderTaskTool(m.input, m.result);
-          break;
-        case 'ask':
-          toolContent = renderAskTool(m.input, m.result, m.answers);
-          break;
-        default:
-          toolContent = renderGenericTool(toolName, m.input, m.result);
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    const isUser = m.type === 'user' || m.content.startsWith('[User]:');
+
+    if (isUser) {
+      // Save previous agent messages as a turn without user message
+      if (currentAgentMsgs.length > 0) {
+        turns.push({ userMsg: null, agentMsgs: currentAgentMsgs, startIdx });
       }
-
-      const paramSummary = getToolParamSummary(toolType, m.input);
-      return `<div class="message message-tool ${toolClass}" data-idx="${i}">
-        <div class="tool-header">
-          <span class="tool-name">${escapeHtml(toolName)}${paramSummary ? ` <span class="tool-param">${escapeHtml(paramSummary)}</span>` : ''}</span>
-          <span class="tool-toggle">\u25B2</span>
-        </div>
-        <div class="tool-content">${toolContent}</div>
-      </div>`;
-    } else if (m.type === 'user') {
-      return `<div class="message message-user">${escapeHtml(m.content)}</div>`;
-    } else if (m.content.startsWith('[User]:')) {
-      // Legacy format
-      return `<div class="message message-user">${escapeHtml(m.content.slice(7).trim())}</div>`;
+      // Start new turn with this user message
+      turns.push({ userMsg: m, agentMsgs: [], startIdx: i });
+      currentAgentMsgs = [];
+      startIdx = i + 1;
     } else {
-      // Render markdown for assistant messages
-      // @ts-ignore - marked is loaded externally
-      const html = typeof marked !== 'undefined' ? marked.parse(m.content) : escapeHtml(m.content);
-      return `<div class="message message-assistant">${html}</div>`;
+      currentAgentMsgs.push(m);
     }
+  }
+
+  // Don't forget trailing agent messages
+  if (currentAgentMsgs.length > 0) {
+    turns.push({ userMsg: null, agentMsgs: currentAgentMsgs, startIdx });
+  }
+
+  return turns.map((turn, turnIdx) => {
+    const parts = [];
+
+    // Render user message if present
+    if (turn.userMsg) {
+      parts.push(renderMessage(turn.userMsg, turn.startIdx - 1));
+    }
+
+    // Render agent messages in a collapsible container
+    if (turn.agentMsgs.length > 0) {
+      const agentHtml = turn.agentMsgs.map((m, i) => renderMessage(m, turn.startIdx + i)).join('');
+      const toolCount = turn.agentMsgs.filter(m => m.type === 'tool').length;
+      const summary = toolCount > 0 ? `${toolCount} tool${toolCount > 1 ? 's' : ''}` : '';
+
+      parts.push(`
+        <div class="turn" data-turn="${turnIdx}">
+          <div class="turn-header">
+            <span class="turn-toggle">\u25B2</span>
+            <span class="turn-summary">${summary}</span>
+          </div>
+          <div class="turn-content">${agentHtml}</div>
+        </div>
+      `);
+    }
+
+    return parts.join('');
   }).join('');
 }
 
@@ -1481,6 +1546,14 @@ document.addEventListener('DOMContentLoaded', () => {
             content.classList.toggle('collapsed');
             toggle.textContent = content.classList.contains('collapsed') ? '\u25BC' : '\u25B2';
           }
+        }
+      }
+
+      // Turn collapse/expand
+      if (target.closest('.turn-header')) {
+        const turn = target.closest('.turn');
+        if (turn) {
+          turn.classList.toggle('collapsed');
         }
       }
     });
