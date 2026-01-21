@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "bun run --watch src/server.ts",
     "start": "bun run src/server.ts",
-    "typecheck": "tsgo --noEmit",
-    "typecheck:ui": "cd ui && tsgo -p jsconfig.json --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:ui": "cd ui && tsc -p jsconfig.json --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",

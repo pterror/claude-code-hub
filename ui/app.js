@@ -245,10 +245,10 @@ function renderReadTool(input, result) {
 
 /**
  * @param {unknown} input
- * @param {string | undefined} result
+ * @param {string | undefined} _result - unused, kept for consistent signature
  * @returns {string}
  */
-function renderEditTool(input, result) {
+function renderEditTool(input, _result) {
   const inp = /** @type {{file_path?: string, old_string?: string, new_string?: string}} */ (input);
   const filePath = inp?.file_path || 'unknown';
   const oldStr = inp?.old_string || '';
@@ -264,10 +264,10 @@ function renderEditTool(input, result) {
 
 /**
  * @param {unknown} input
- * @param {string | undefined} result
+ * @param {string | undefined} _result - unused, kept for consistent signature
  * @returns {string}
  */
-function renderWriteTool(input, result) {
+function renderWriteTool(input, _result) {
   const inp = /** @type {{file_path?: string, content?: string}} */ (input);
   const filePath = inp?.file_path || 'unknown';
   const content = inp?.content || '';
@@ -380,12 +380,12 @@ function renderTaskTool(input, result) {
 }
 
 /**
- * @param {string} toolName
+ * @param {string} _toolName - unused, kept for consistent signature
  * @param {unknown} input
  * @param {string | undefined} result
  * @returns {string}
  */
-function renderGenericTool(toolName, input, result) {
+function renderGenericTool(_toolName, input, result) {
   const details = input ? JSON.stringify(input, null, 2) : '';
   const resultStr = result ? (typeof result === 'string' ? result : JSON.stringify(result, null, 2)) : '';
 
@@ -1103,7 +1103,7 @@ async function toggleNotifications() {
 
     const subscription = await swRegistration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
+      applicationServerKey: /** @type {BufferSource} */ (urlBase64ToUint8Array(publicKey)),
     });
 
     await fetch(`${API}/push/subscribe`, {
