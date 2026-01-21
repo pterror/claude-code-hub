@@ -118,7 +118,7 @@ export function loadSessionMessages(cwd: string, sessionId: string): AgentMessag
 
 /**
  * Extract first user message from session file (for preview).
- * Only reads first 4KB for speed - user message is always near start.
+ * Only reads first 4KB - user message is always near start.
  */
 function getFirstUserMessage(filePath: string): string {
   try {
@@ -128,9 +128,8 @@ function getFirstUserMessage(filePath: string): string {
     closeSync(fd);
 
     const content = buffer.toString("utf-8", 0, bytesRead);
-    const lines = content.split("\n");
 
-    for (const line of lines) {
+    for (const line of content.split("\n")) {
       if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line);
@@ -146,7 +145,7 @@ function getFirstUserMessage(filePath: string): string {
       }
     }
   } catch {
-    // Ignore read errors
+    // Ignore errors
   }
   return "";
 }
