@@ -5,7 +5,7 @@
  * Sessions are stored at ~/.claude/projects/<encoded-path>/<session-id>.jsonl
  */
 
-import { readFileSync, existsSync, readdirSync, statSync } from "fs";
+import { readFileSync, existsSync, readdirSync, statSync, openSync, readSync, closeSync } from "fs";
 import { homedir } from "os";
 import { join, basename } from "path";
 import type { AgentMessage } from "./agents";
@@ -117,21 +117,37 @@ export function loadSessionMessages(cwd: string, sessionId: string): AgentMessag
 }
 
 /**
- * Extract the first user message from a session file (for preview).
+ * Extract session summary or first user message (for preview).
+ * Only reads first 16KB of file for speed.
  */
-function getFirstUserMessage(path: string): string {
+function getSessionSummary(filePath: string): string {
   try {
-    const content = readFileSync(path, "utf-8");
+    const fd = openSync(filePath, "r");
+    const buffer = Buffer.alloc(16384);
+    const bytesRead = readSync(fd, buffer, 0, 16384, 0);
+    closeSync(fd);
+
+    const content = buffer.toString("utf-8", 0, bytesRead);
     const lines = content.split("\n");
+
+    let firstUserMessage = "";
 
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
-        const entry: SessionEntry = JSON.parse(line);
-        if (entry.type === "user" && entry.message?.content) {
+        const entry = JSON.parse(line);
+
+        // Prefer summary entry if found
+        if (entry.type === "summary" && entry.summary) {
+          return entry.summary;
+        }
+
+        // Capture first user message as fallback
+        if (!firstUserMessage && entry.type === "user" && entry.message?.content) {
           for (const block of entry.message.content) {
             if (block.type === "text" && block.text) {
-              return block.text.slice(0, 200);
+              firstUserMessage = block.text.slice(0, 200);
+              break;
             }
           }
         }
@@ -139,6 +155,8 @@ function getFirstUserMessage(path: string): string {
         continue;
       }
     }
+
+    return firstUserMessage;
   } catch {
     // Ignore read errors
   }
@@ -149,7 +167,7 @@ function getFirstUserMessage(path: string): string {
  * Discover all Claude Code sessions on disk.
  * Set readPrompts=true to read first message from each file (slower).
  */
-export function discoverSessions(readPrompts = false): DiscoveredSession[] {
+export function discoverSessions(readPrompts = true): DiscoveredSession[] {
   const projectsDir = join(homedir(), ".claude", "projects");
 
   if (!existsSync(projectsDir)) {
@@ -186,7 +204,7 @@ export function discoverSessions(readPrompts = false): DiscoveredSession[] {
           sessions.push({
             sessionId,
             cwd,
-            firstMessage: readPrompts ? getFirstUserMessage(filePath) : "",
+            firstMessage: readPrompts ? getSessionSummary(filePath) : "",
             createdAt: fileStat.birthtime,
             modifiedAt: fileStat.mtime,
           });
