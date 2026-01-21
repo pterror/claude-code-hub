@@ -335,6 +335,84 @@
       color: white;
       border-color: transparent;
     }
+
+    .triggers-section {
+      margin-bottom: 1rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .triggers-header {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+      color: var(--fg-muted);
+    }
+
+    .triggers-header:hover {
+      background: var(--glass-hover);
+    }
+
+    .triggers-content {
+      display: none;
+      padding: 0 1rem 1rem;
+    }
+
+    .triggers-section.expanded .triggers-content {
+      display: block;
+    }
+
+    .trigger-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+
+    .trigger-item code {
+      font-family: ui-monospace, monospace;
+      font-size: 0.75rem;
+      color: var(--fg-muted);
+    }
+
+    .trigger-delete {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.7rem;
+      background: var(--error);
+      border: none;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .trigger-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--glass-border);
+    }
+
+    .trigger-form input {
+      padding: 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .trigger-form button {
+      padding: 0.5rem;
+      font-size: 0.85rem;
+    }
   </style>
 </head>
 <body>
@@ -345,6 +423,22 @@
   </div>
 
   <div class="presets" id="presets"></div>
+
+  <div class="triggers-section" id="triggers-section">
+    <div class="triggers-header" id="triggers-header">
+      <span>Webhooks</span>
+      <span class="triggers-count"></span>
+    </div>
+    <div class="triggers-content">
+      <div id="triggers-list"></div>
+      <form class="trigger-form" id="trigger-form">
+        <input type="text" id="trigger-name" placeholder="Trigger name (url-safe)" required>
+        <input type="text" id="trigger-cwd" placeholder="Working directory" list="repos-list" required>
+        <input type="text" id="trigger-prompt" placeholder="Prompt (use {{payload.field}} for templating)" required>
+        <button type="submit">Create Trigger</button>
+      </form>
+    </div>
+  </div>
 
   <div class="filter-row">
     <input type="text" class="filter-input" id="filter" placeholder="Filter agents...">
@@ -722,8 +816,73 @@
       } catch {}
     }
 
+    // Triggers
+    let triggers = [];
+
+    async function fetchTriggers() {
+      try {
+        const res = await fetch(`${API}/triggers`);
+        triggers = await res.json();
+        renderTriggers();
+      } catch {}
+    }
+
+    function renderTriggers() {
+      const list = document.getElementById('triggers-list');
+      const count = document.querySelector('.triggers-count');
+      count.textContent = triggers.length ? `(${triggers.length})` : '';
+
+      if (triggers.length === 0) {
+        list.innerHTML = '<div style="color: var(--fg-muted); font-size: 0.8rem;">No triggers. Create one to enable webhooks.</div>';
+        return;
+      }
+
+      list.innerHTML = triggers.map(t => `
+        <div class="trigger-item" data-name="${t.name}">
+          <div>
+            <strong>${t.name}</strong><br>
+            <code>POST /hooks/${t.name}</code>
+          </div>
+          <button class="trigger-delete">Delete</button>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.trigger-delete').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const item = btn.closest('.trigger-item');
+          const name = item.dataset.name;
+          await fetch(`${API}/triggers/${encodeURIComponent(name)}`, { method: 'DELETE' });
+          fetchTriggers();
+        });
+      });
+    }
+
+    document.getElementById('triggers-header').addEventListener('click', () => {
+      document.getElementById('triggers-section').classList.toggle('expanded');
+    });
+
+    document.getElementById('trigger-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('trigger-name').value;
+      const cwd = document.getElementById('trigger-cwd').value;
+      const prompt = document.getElementById('trigger-prompt').value;
+
+      await fetch(`${API}/triggers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, cwd, prompt, preset: 'isolated' }),
+      });
+
+      document.getElementById('trigger-name').value = '';
+      document.getElementById('trigger-cwd').value = '';
+      document.getElementById('trigger-prompt').value = '';
+      fetchTriggers();
+    });
+
     fetchAgents();
     fetchRepos();
+    fetchTriggers();
     connectWS();
     renderPresets();
 

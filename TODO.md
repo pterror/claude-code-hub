@@ -101,7 +101,7 @@ Note: Agent ID is baked into per-agent MCP server instances - no caller_id param
 - [x] Token usage tracking (for quota plans)
 - [x] Keyboard shortcuts: `/` prompt, `f` filter, `r` refresh, `1-9` toggle
 - [x] Recent agents history (discover sessions from ~/.claude/projects/)
-- [ ] Auto-spawn based on triggers (future)
+- [x] Auto-spawn based on triggers (webhooks)
 
 ## Non-Goals
 
@@ -146,6 +146,6 @@ Note: Agent ID is baked into per-agent MCP server instances - no caller_id param
 - [x] PWA with service worker for offline UI caching
 - [x] Notifications (Web Push) when agent completes/errors
 - [x] Recent agents history (discover sessions from ~/.claude/projects/)
-- [ ] Auto-spawn based on triggers (webhooks, file changes)
+- [x] Auto-spawn based on triggers (webhooks with payload templating)
 - [x] Message persistence (read from Claude Code session files)
 - [ ] Agent templates with pre-configured CLAUDE.md

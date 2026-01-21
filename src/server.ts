@@ -7,6 +7,7 @@
 
 import { AgentManager } from "./agents";
 import { initPush, getPublicKey, addSubscription, removeSubscription } from "./push";
+import * as db from "./db";
 import { readdirSync, existsSync, statSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
@@ -50,7 +51,7 @@ const server = Bun.serve({
     // CORS for mobile access
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
     };
 
@@ -114,6 +115,56 @@ const server = Bun.serve({
       const ok = agents.updateCapabilities(id, body);
       if (!ok) return new Response("Not found", { status: 404 });
       return Response.json({ ok: true, capabilities: agents.get(id)?.capabilities }, { headers: corsHeaders });
+    }
+
+    // Trigger management
+    if (path === "/triggers" && req.method === "GET") {
+      return Response.json(db.listTriggers(), { headers: corsHeaders });
+    }
+
+    if (path === "/triggers" && req.method === "POST") {
+      const body = await req.json();
+      if (!body.name || !body.cwd || !body.prompt) {
+        return new Response("Missing required fields: name, cwd, prompt", { status: 400 });
+      }
+      db.saveTrigger({
+        name: body.name,
+        cwd: body.cwd,
+        prompt: body.prompt,
+        preset: body.preset || "isolated",
+      });
+      return Response.json({ ok: true }, { headers: corsHeaders });
+    }
+
+    if (path.match(/^\/triggers\/[^/]+$/) && req.method === "DELETE") {
+      const name = decodeURIComponent(path.split("/")[2]);
+      const deleted = db.deleteTrigger(name);
+      if (!deleted) return new Response("Not found", { status: 404 });
+      return Response.json({ ok: true }, { headers: corsHeaders });
+    }
+
+    // Webhook endpoint - triggers spawn an agent
+    if (path.match(/^\/hooks\/[^/]+$/) && req.method === "POST") {
+      const name = decodeURIComponent(path.split("/")[2]);
+      const trigger = db.getTrigger(name);
+      if (!trigger) return new Response("Trigger not found", { status: 404 });
+
+      // Parse payload and interpolate into prompt
+      let payload = {};
+      try {
+        payload = await req.json();
+      } catch {
+        // No JSON payload is fine
+      }
+
+      // Simple template interpolation: {{field}} or {{nested.field}}
+      const prompt = trigger.prompt.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
+        const value = key.split('.').reduce((obj: Record<string, unknown>, k: string) => obj?.[k] as Record<string, unknown>, payload as Record<string, unknown>);
+        return value !== undefined ? String(value) : `{{${key}}}`;
+      });
+
+      const agent = await agents.spawn(trigger.cwd, prompt, trigger.preset);
+      return Response.json({ ok: true, agentId: agent.id }, { headers: corsHeaders });
     }
 
     // Serve static UI
