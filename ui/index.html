@@ -267,6 +267,23 @@
     .filter-input {
       margin-bottom: 0.75rem;
     }
+
+    .shortcuts {
+      margin-top: 1.5rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--fg-muted);
+      opacity: 0.6;
+    }
+    .shortcuts kbd {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 4px;
+      font-family: ui-monospace, monospace;
+      margin-right: 0.25rem;
+    }
   </style>
 </head>
 <body>
@@ -291,6 +308,10 @@
 
   <div class="agents" id="agents">
     <div class="empty">No agents running. Spawn one above.</div>
+  </div>
+
+  <div class="shortcuts">
+    <kbd>/</kbd> prompt <kbd>f</kbd> filter <kbd>r</kbd> refresh <kbd>1-9</kbd> toggle
   </div>
 
   <script>
@@ -485,6 +506,37 @@
       await spawnAgent(cwd, prompt, preset);
       document.getElementById('cwd').value = '';
       document.getElementById('prompt').value = '';
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+      // Don't trigger when typing in inputs
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        if (e.key === 'Escape') e.target.blur();
+        return;
+      }
+
+      if (e.key === '/' || e.key === 'n') {
+        e.preventDefault();
+        document.getElementById('prompt').focus();
+      } else if (e.key === 'f') {
+        e.preventDefault();
+        document.getElementById('filter').focus();
+      } else if (e.key === 'r') {
+        e.preventDefault();
+        fetchAgents();
+      } else if (e.key >= '1' && e.key <= '9') {
+        const idx = parseInt(e.key) - 1;
+        const filtered = agents.filter(a =>
+          !filterText || a.cwd.toLowerCase().includes(filterText) || a.prompt.toLowerCase().includes(filterText)
+        );
+        if (filtered[idx]) {
+          const id = filtered[idx].id;
+          if (expandedAgents.has(id)) expandedAgents.delete(id);
+          else expandedAgents.add(id);
+          render();
+        }
+      }
     });
 
     fetchAgents();

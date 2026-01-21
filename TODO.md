@@ -2,7 +2,12 @@
 
 ## Current Status
 
-Phase 1 complete. Server spawns real Claude Code agents via the SDK.
+**Phases 1-6 complete.** Fully functional multi-agent hub with:
+- Real Claude Code agents via SDK (V2 API)
+- Capability-based inter-agent communication
+- SQLite persistence
+- Glassmorphism UI with light/dark mode
+- Mobile pull-to-refresh, presets, filter, keyboard shortcuts
 
 ## Phase 1: Basic Functionality (DONE)
 
@@ -86,15 +91,15 @@ interface AgentCapabilities {
 - [ ] Test UI on actual phone over tailscale
 - [ ] Notifications when agent needs input or completes?
 
-## Phase 6: Quality of Life (PARTIAL)
+## Phase 6: Quality of Life (DONE)
 
 - [x] Agent presets (saved to localStorage)
 - [x] Quick-spawn buttons for frequent tasks
 - [x] Search/filter agents
 - [x] Token usage tracking (for quota plans)
-- [ ] Recent agents history
-- [ ] Keyboard shortcuts on desktop
-- [ ] Auto-spawn based on triggers
+- [x] Keyboard shortcuts: `/` prompt, `f` filter, `r` refresh, `1-9` toggle
+- [ ] Recent agents history (future)
+- [ ] Auto-spawn based on triggers (future)
 
 ## Non-Goals
 
