@@ -27,6 +27,8 @@ export interface Agent {
   createdAt: Date;
   sessionId?: string;
   capabilities: AgentCapabilities;
+  tokens?: number;
+  costUsd?: number;
 }
 
 export interface AgentMessage {
@@ -310,6 +312,16 @@ export class AgentManager {
       }
     } else if (msg.type === "result") {
       const content = msg.subtype === "success" ? msg.result : `Error: ${msg.subtype}`;
+
+      // Capture token usage
+      if (msg.usage) {
+        const totalTokens = (msg.usage.input_tokens || 0) + (msg.usage.output_tokens || 0);
+        agent.tokens = (agent.tokens || 0) + totalTokens;
+      }
+      if ("total_cost_usd" in msg && typeof msg.total_cost_usd === "number") {
+        agent.costUsd = (agent.costUsd || 0) + msg.total_cost_usd;
+      }
+
       agent.messages.push({
         type: "result",
         content,
@@ -320,6 +332,8 @@ export class AgentManager {
         agentId: agent.id,
         messageType: "result",
         content,
+        tokens: agent.tokens,
+        costUsd: agent.costUsd,
       });
     }
   }
