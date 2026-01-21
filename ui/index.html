@@ -272,8 +272,26 @@
       margin-left: 0.5rem;
     }
 
-    .filter-input {
+    .filter-row {
+      display: flex;
+      gap: 0.5rem;
       margin-bottom: 0.75rem;
+    }
+
+    .filter-input {
+      flex: 1;
+    }
+
+    .source-filter {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+    }
+
+    .badge-source {
+      background: var(--glass-bg);
+      border: 1px dashed var(--glass-border);
+      color: var(--fg-muted);
+      font-style: italic;
     }
 
     .shortcuts {
@@ -300,7 +318,14 @@
 
   <div class="presets" id="presets"></div>
 
-  <input type="text" class="filter-input" id="filter" placeholder="Filter agents...">
+  <div class="filter-row">
+    <input type="text" class="filter-input" id="filter" placeholder="Filter agents...">
+    <select class="source-filter" id="source-filter">
+      <option value="all">All sessions</option>
+      <option value="hub">Hub only</option>
+      <option value="discovered">Discovered</option>
+    </select>
+  </div>
 
   <form class="spawn-form" id="spawn-form">
     <input type="text" id="cwd" placeholder="Working directory (e.g. ~/git/moss)" required>
@@ -327,6 +352,7 @@
     let agents = [];
     const expandedAgents = new Set();
     let filterText = '';
+    let sourceFilter = 'all';
 
     // Load saved presets from localStorage
     let savedPresets = JSON.parse(localStorage.getItem('hub-presets') || '[]');
@@ -338,7 +364,7 @@
     }
 
     async function fetchAgents() {
-      const res = await fetch(`${API}/agents`);
+      const res = await fetch(`${API}/agents?source=${sourceFilter}`);
       agents = await res.json();
       render();
     }
@@ -421,6 +447,11 @@
       render();
     });
 
+    document.getElementById('source-filter').addEventListener('change', e => {
+      sourceFilter = e.target.value;
+      fetchAgents();
+    });
+
     function getPresetName(caps) {
       if (!caps) return 'unknown';
       if (caps.canSpawn) return 'coordinator';
@@ -451,6 +482,7 @@
             <span class="agent-badges">
               <span class="badge badge-status status-${agent.status}">${agent.status}</span>
               <span class="badge badge-caps">${getPresetName(agent.capabilities)}</span>
+              ${agent.source === 'discovered' ? '<span class="badge badge-source">discovered</span>' : ''}
               ${agent.tokens ? `<span class="agent-cost">${(agent.tokens/1000).toFixed(1)}k tok</span>` : ''}
             </span>
           </div>

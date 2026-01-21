@@ -37,7 +37,8 @@ const server = Bun.serve({
 
     // API routes
     if (path === "/agents" && req.method === "GET") {
-      return Response.json(agents.list(), { headers: corsHeaders });
+      const source = url.searchParams.get("source") as "hub" | "discovered" | "all" | null;
+      return Response.json(agents.list({ source: source || "all" }), { headers: corsHeaders });
     }
 
     if (path === "/agents" && req.method === "POST") {

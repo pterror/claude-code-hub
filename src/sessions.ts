@@ -5,10 +5,18 @@
  * Sessions are stored at ~/.claude/projects/<encoded-path>/<session-id>.jsonl
  */
 
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import { homedir } from "os";
-import { join } from "path";
+import { join, basename } from "path";
 import type { AgentMessage } from "./agents";
+
+export interface DiscoveredSession {
+  sessionId: string;
+  cwd: string;
+  firstMessage: string;
+  createdAt: Date;
+  modifiedAt: Date;
+}
 
 /**
  * Encode a working directory path to Claude Code's format.
@@ -17,6 +25,15 @@ import type { AgentMessage } from "./agents";
 function encodePath(cwd: string): string {
   const expanded = cwd.replace(/^~/, homedir());
   return expanded.replace(/\//g, "-");
+}
+
+/**
+ * Decode a Claude Code project folder name back to a path.
+ * -home-me-git-foo -> /home/me/git/foo
+ */
+function decodePath(encoded: string): string {
+  // Remove leading dash and replace dashes with slashes
+  return encoded.replace(/^-/, "/").replace(/-/g, "/");
 }
 
 /**
@@ -97,4 +114,90 @@ export function loadSessionMessages(cwd: string, sessionId: string): AgentMessag
   }
 
   return messages;
+}
+
+/**
+ * Extract the first user message from a session file (for preview).
+ */
+function getFirstUserMessage(path: string): string {
+  try {
+    const content = readFileSync(path, "utf-8");
+    const lines = content.split("\n");
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const entry: SessionEntry = JSON.parse(line);
+        if (entry.type === "user" && entry.message?.content) {
+          for (const block of entry.message.content) {
+            if (block.type === "text" && block.text) {
+              return block.text.slice(0, 200);
+            }
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+  } catch {
+    // Ignore read errors
+  }
+  return "";
+}
+
+/**
+ * Discover all Claude Code sessions on disk.
+ */
+export function discoverSessions(): DiscoveredSession[] {
+  const projectsDir = join(homedir(), ".claude", "projects");
+
+  if (!existsSync(projectsDir)) {
+    return [];
+  }
+
+  const sessions: DiscoveredSession[] = [];
+
+  try {
+    const projectDirs = readdirSync(projectsDir);
+
+    for (const projectDir of projectDirs) {
+      const projectPath = join(projectsDir, projectDir);
+      const stat = statSync(projectPath);
+
+      if (!stat.isDirectory()) continue;
+
+      const cwd = decodePath(projectDir);
+
+      // Find all .jsonl files in this project
+      const files = readdirSync(projectPath).filter(f => f.endsWith(".jsonl"));
+
+      for (const file of files) {
+        const filePath = join(projectPath, file);
+        const sessionId = basename(file, ".jsonl");
+
+        // Skip non-UUID session files (like summaries)
+        if (!/^[a-f0-9-]{36}$/.test(sessionId) && !sessionId.startsWith("agent-")) {
+          continue;
+        }
+
+        try {
+          const fileStat = statSync(filePath);
+          sessions.push({
+            sessionId,
+            cwd,
+            firstMessage: getFirstUserMessage(filePath),
+            createdAt: fileStat.birthtime,
+            modifiedAt: fileStat.mtime,
+          });
+        } catch {
+          continue;
+        }
+      }
+    }
+  } catch {
+    // Ignore errors
+  }
+
+  // Sort by modification time, most recent first
+  return sessions.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
 }

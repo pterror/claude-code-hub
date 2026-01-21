@@ -98,7 +98,7 @@ interface AgentCapabilities {
 - [x] Search/filter agents
 - [x] Token usage tracking (for quota plans)
 - [x] Keyboard shortcuts: `/` prompt, `f` filter, `r` refresh, `1-9` toggle
-- [ ] Recent agents history (future)
+- [x] Recent agents history (discover sessions from ~/.claude/projects/) (future)
 - [ ] Auto-spawn based on triggers (future)
 
 ## Non-Goals
@@ -143,7 +143,7 @@ interface AgentCapabilities {
 
 - [x] PWA with service worker for offline UI caching
 - [ ] Notifications (Web Push) when agent completes/needs input
-- [ ] Recent agents history
+- [x] Recent agents history (discover sessions from ~/.claude/projects/)
 - [ ] Auto-spawn based on triggers (webhooks, file changes)
 - [x] Message persistence (read from Claude Code session files)
 - [ ] Agent templates with pre-configured CLAUDE.md

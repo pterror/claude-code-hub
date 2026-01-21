@@ -16,7 +16,7 @@ import {
   applyPreset,
 } from "./capabilities";
 import { createAgentMcpServer } from "./hub-mcp";
-import { loadSessionMessages } from "./sessions";
+import { loadSessionMessages, discoverSessions } from "./sessions";
 import * as db from "./db";
 
 export interface Agent {
@@ -30,6 +30,7 @@ export interface Agent {
   capabilities: AgentCapabilities;
   tokens?: number;
   costUsd?: number;
+  source: "hub" | "discovered";
 }
 
 export interface AgentMessage {
@@ -72,13 +73,46 @@ export class AgentManager {
         createdAt: agent.createdAt,
         sessionId: agent.sessionId,
         capabilities: agent.capabilities,
+        source: "hub",
       });
     }
     console.log(`Loaded ${stored.length} agents from database`);
   }
 
-  list(): Agent[] {
-    return Array.from(this.agents.values());
+  list(filter?: { source?: "hub" | "discovered" | "all" }): Agent[] {
+    const source = filter?.source || "all";
+    const hubAgents = Array.from(this.agents.values());
+
+    if (source === "hub") {
+      return hubAgents;
+    }
+
+    // Discover sessions from disk and merge
+    const discovered = discoverSessions();
+    const knownSessionIds = new Set(hubAgents.map(a => a.sessionId).filter(Boolean));
+
+    const discoveredAgents: Agent[] = discovered
+      .filter(s => !knownSessionIds.has(s.sessionId))
+      .map(s => ({
+        id: s.sessionId, // Use session ID as agent ID for discovered
+        cwd: s.cwd,
+        prompt: s.firstMessage || "(no prompt)",
+        status: "done" as const,
+        messages: [], // Lazy load on demand
+        createdAt: s.createdAt,
+        sessionId: s.sessionId,
+        capabilities: getDefaultCapabilities(),
+        source: "discovered" as const,
+      }));
+
+    if (source === "discovered") {
+      return discoveredAgents;
+    }
+
+    // Merge and sort by creation date
+    return [...hubAgents, ...discoveredAgents].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    );
   }
 
   get(id: string): Agent | undefined {
@@ -99,6 +133,7 @@ export class AgentManager {
       messages: [],
       createdAt: new Date(),
       capabilities: applyPreset(preset),
+      source: "hub",
     };
 
     this.agents.set(id, agent);
