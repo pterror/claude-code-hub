@@ -188,6 +188,26 @@ const server = Bun.serve({
         headers: { "Content-Type": "application/javascript" },
       });
     }
+    if (path === "/highlight.min.js") {
+      return new Response(Bun.file("ui/highlight.min.js"), {
+        headers: { "Content-Type": "application/javascript" },
+      });
+    }
+    if (path === "/highlight-dark.css") {
+      return new Response(Bun.file("ui/highlight-dark.css"), {
+        headers: { "Content-Type": "text/css" },
+      });
+    }
+    if (path === "/highlight-light.css") {
+      return new Response(Bun.file("ui/highlight-light.css"), {
+        headers: { "Content-Type": "text/css" },
+      });
+    }
+    if (path === "/app.js") {
+      return new Response(Bun.file("ui/app.js"), {
+        headers: { "Content-Type": "application/javascript" },
+      });
+    }
 
     return new Response("Not found", { status: 404 });
   },

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/server.ts",
-    "start": "bun run src/server.ts"
+    "start": "bun run src/server.ts",
+    "typecheck": "tsgo --noEmit",
+    "typecheck:ui": "cd ui && tsgo -p jsconfig.json --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
@@ -13,6 +15,8 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@typescript/native-preview": "^7.0.0-dev.20260120.1",
+    "typescript": "^5.9.3"
   }
 }
