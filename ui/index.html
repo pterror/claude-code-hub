@@ -328,7 +328,8 @@
   </div>
 
   <form class="spawn-form" id="spawn-form">
-    <input type="text" id="cwd" placeholder="Working directory (e.g. ~/git/moss)" required>
+    <input type="text" id="cwd" placeholder="Working directory (e.g. ~/git/moss)" list="repos-list" required>
+    <datalist id="repos-list"></datalist>
     <input type="text" id="prompt" placeholder="What should the agent do?" required>
     <select id="preset">
       <option value="isolated">isolated (no inter-agent comms)</option>
@@ -684,7 +685,17 @@
       }
     });
 
+    async function fetchRepos() {
+      try {
+        const res = await fetch(`${API}/repos`);
+        const repos = await res.json();
+        const datalist = document.getElementById('repos-list');
+        datalist.innerHTML = repos.map(r => `<option value="${r}">`).join('');
+      } catch {}
+    }
+
     fetchAgents();
+    fetchRepos();
     connectWS();
     renderPresets();
 

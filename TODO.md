@@ -52,10 +52,12 @@ interface AgentCapabilities {
 
 ### MCP tools exposed to agents (based on capabilities)
 
-- `hub_list_agents(caller_id)` → returns agent IDs, status (requires canDiscover)
-- `hub_read_agent(caller_id, target_id, detail)` → detail: "status" | "summary" | "full" (requires canRead)
-- `hub_message_agent(caller_id, target_id, msg, timeout_ms)` → sync call, blocks until response
-- `hub_spawn_agent(caller_id, cwd, prompt, preset)` → returns agent ID (requires canSpawn)
+- `hub_list_agents()` → returns agent IDs, status (requires canDiscover)
+- `hub_read_agent(target_id, detail)` → detail: "status" | "summary" | "full" (requires canRead)
+- `hub_message_agent(target_id, msg, timeout_ms)` → sync call, blocks until response
+- `hub_spawn_agent(cwd, prompt, preset)` → returns agent ID (requires canSpawn)
+
+Note: Agent ID is baked into per-agent MCP server instances - no caller_id parameter needed.
 
 ### API for human control
 
@@ -98,7 +100,7 @@ interface AgentCapabilities {
 - [x] Search/filter agents
 - [x] Token usage tracking (for quota plans)
 - [x] Keyboard shortcuts: `/` prompt, `f` filter, `r` refresh, `1-9` toggle
-- [x] Recent agents history (discover sessions from ~/.claude/projects/) (future)
+- [x] Recent agents history (discover sessions from ~/.claude/projects/)
 - [ ] Auto-spawn based on triggers (future)
 
 ## Non-Goals
@@ -137,7 +139,7 @@ interface AgentCapabilities {
 
 - [ ] Best way to handle ANTHROPIC_API_KEY? Env var on server?
 - [ ] Should we support multiple users or assume single-user?
-- [ ] File watching to auto-detect repos in ~/git/?
+- [x] File watching to auto-detect repos in ~/git/? → GET /repos endpoint + UI autocomplete
 
 ## Future Ideas
 

@@ -6,6 +6,25 @@
  */
 
 import { AgentManager } from "./agents";
+import { readdirSync, existsSync, statSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
+
+function discoverRepos(baseDir: string = join(homedir(), "git")): string[] {
+  if (!existsSync(baseDir)) return [];
+
+  try {
+    return readdirSync(baseDir)
+      .filter(name => {
+        const fullPath = join(baseDir, name);
+        const gitPath = join(fullPath, ".git");
+        return statSync(fullPath).isDirectory() && existsSync(gitPath);
+      })
+      .map(name => join(baseDir, name));
+  } catch {
+    return [];
+  }
+}
 
 const PORT = Number(process.env.PORT) || 3000;
 const agents = new AgentManager();
@@ -36,6 +55,11 @@ const server = Bun.serve({
     }
 
     // API routes
+    if (path === "/repos" && req.method === "GET") {
+      const repos = discoverRepos();
+      return Response.json(repos, { headers: corsHeaders });
+    }
+
     if (path === "/agents" && req.method === "GET") {
       const source = url.searchParams.get("source") as "hub" | "discovered" | "all" | null;
       return Response.json(agents.list({ source: source || "all" }), { headers: corsHeaders });
