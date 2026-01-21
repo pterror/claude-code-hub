@@ -132,7 +132,6 @@ interface AgentCapabilities {
 
 - SDK V2 API is `unstable_` prefixed - may change in future versions (V1 fallback exists)
 - Inter-agent messaging not battle-tested yet
-- UI message history not persisted (but Claude Code sessions are - resume works)
 
 ## Open Questions
 
@@ -146,5 +145,5 @@ interface AgentCapabilities {
 - [ ] Notifications (Web Push) when agent completes/needs input
 - [ ] Recent agents history
 - [ ] Auto-spawn based on triggers (webhooks, file changes)
-- [ ] Message persistence (store conversation history)
+- [x] Message persistence (read from Claude Code session files)
 - [ ] Agent templates with pre-configured CLAUDE.md

@@ -16,6 +16,7 @@ import {
   applyPreset,
 } from "./capabilities";
 import { createAgentMcpServer } from "./hub-mcp";
+import { loadSessionMessages } from "./sessions";
 import * as db from "./db";
 
 export interface Agent {
@@ -57,13 +58,17 @@ export class AgentManager {
   private loadFromDb() {
     const stored = db.loadAgents();
     for (const agent of stored) {
-      // Restore agent with empty messages (those aren't persisted)
+      // Load messages from Claude Code's session files
+      const messages = agent.sessionId
+        ? loadSessionMessages(agent.cwd, agent.sessionId)
+        : [];
+
       this.agents.set(agent.id, {
         id: agent.id,
         cwd: agent.cwd,
         prompt: agent.prompt,
         status: agent.status as Agent["status"],
-        messages: [],
+        messages,
         createdAt: agent.createdAt,
         sessionId: agent.sessionId,
         capabilities: agent.capabilities,
