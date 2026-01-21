@@ -500,15 +500,15 @@
       const data = await res.json();
 
       if (append) {
-        agents = [...agents, ...data.agents];
+        agents = [...agents, ...(data.agents || [])];
       } else {
-        agents = data.agents;
+        agents = data.agents || [];
         // Clear old elements when refreshing
         agentElements.forEach(el => el.remove());
         agentElements.clear();
       }
 
-      hasMore = data.hasMore;
+      hasMore = data.hasMore || false;
       currentOffset = agents.length;
       loading = false;
       render();

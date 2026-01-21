@@ -25,14 +25,15 @@ export function createAgentMcpServer(agentId: string, manager: AgentManager) {
             return { content: [{ type: "text", text: "Permission denied: canDiscover is false" }], isError: true };
           }
 
-          const agents = manager.list().map(a => ({
+          const { agents } = manager.list({ source: "hub" });
+          const summary = agents.map(a => ({
             id: a.id,
             cwd: a.cwd,
             status: a.status,
             prompt: a.prompt.slice(0, 100),
           }));
 
-          return { content: [{ type: "text", text: JSON.stringify(agents, null, 2) }] };
+          return { content: [{ type: "text", text: JSON.stringify(summary, null, 2) }] };
         }
       ),
 
