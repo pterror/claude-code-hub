@@ -131,6 +131,17 @@
     .status-error { background: var(--error); }
     .status-waiting { background: var(--warning); }
 
+    .ws-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+    .ws-connected { background: var(--success); }
+    .ws-disconnected { background: var(--error); }
+
     .badge-caps {
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
@@ -467,7 +478,7 @@
 <body>
   <div class="pull-indicator" id="pull-indicator">Pull to refresh...</div>
   <div class="header">
-    <h1>claude-code-hub <span id="ws-status" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--error); vertical-align: middle; margin-left: 4px;" title="Disconnected"></span></h1>
+    <h1>claude-code-hub <span id="ws-status" class="ws-indicator ws-disconnected" title="Disconnected"></span></h1>
     <button class="notify-btn" id="notify-btn" title="Enable push notifications">Notify</button>
   </div>
 
@@ -926,7 +937,8 @@
       wsConnected = connected;
       const indicator = document.getElementById('ws-status');
       if (indicator) {
-        indicator.style.background = connected ? 'var(--success)' : 'var(--error)';
+        indicator.classList.toggle('ws-connected', connected);
+        indicator.classList.toggle('ws-disconnected', !connected);
         indicator.title = connected ? 'Connected' : 'Disconnected';
       }
     }
