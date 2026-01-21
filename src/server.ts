@@ -74,6 +74,16 @@ const server = Bun.serve({
     if (path === "/" || path === "/index.html") {
       return new Response(Bun.file("ui/index.html"));
     }
+    if (path === "/manifest.json") {
+      return new Response(Bun.file("ui/manifest.json"), {
+        headers: { "Content-Type": "application/manifest+json" },
+      });
+    }
+    if (path === "/sw.js") {
+      return new Response(Bun.file("ui/sw.js"), {
+        headers: { "Content-Type": "application/javascript" },
+      });
+    }
 
     return new Response("Not found", { status: 404 });
   },

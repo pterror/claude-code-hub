@@ -128,8 +128,24 @@ interface AgentCapabilities {
 - Any browser can connect
 - Phone access without native app
 
+## Known Risks (not blockers)
+
+- SDK V2 API is `unstable_` prefixed - may change in future versions (V1 fallback exists)
+- Inter-agent messaging not battle-tested yet
+- UI message history not persisted (but Claude Code sessions are - resume works)
+- Hub MCP server tools require agents to pass their own ID (trust-based)
+
 ## Open Questions
 
 - [ ] Best way to handle ANTHROPIC_API_KEY? Env var on server?
 - [ ] Should we support multiple users or assume single-user?
 - [ ] File watching to auto-detect repos in ~/git/?
+
+## Future Ideas
+
+- [x] PWA with service worker for offline UI caching
+- [ ] Notifications (Web Push) when agent completes/needs input
+- [ ] Recent agents history
+- [ ] Auto-spawn based on triggers (webhooks, file changes)
+- [ ] Message persistence (store conversation history)
+- [ ] Agent templates with pre-configured CLAUDE.md
