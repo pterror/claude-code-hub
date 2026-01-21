@@ -16,6 +16,7 @@ import {
   applyPreset,
 } from "./capabilities";
 import { createHubMcpServer } from "./hub-mcp";
+import * as db from "./db";
 
 export interface Agent {
   id: string;
@@ -50,6 +51,25 @@ export class AgentManager {
 
   constructor() {
     this.hubMcpServer = createHubMcpServer(this);
+    this.loadFromDb();
+  }
+
+  private loadFromDb() {
+    const stored = db.loadAgents();
+    for (const agent of stored) {
+      // Restore agent with empty messages (those aren't persisted)
+      this.agents.set(agent.id, {
+        id: agent.id,
+        cwd: agent.cwd,
+        prompt: agent.prompt,
+        status: agent.status as Agent["status"],
+        messages: [],
+        createdAt: agent.createdAt,
+        sessionId: agent.sessionId,
+        capabilities: agent.capabilities,
+      });
+    }
+    console.log(`Loaded ${stored.length} agents from database`);
   }
 
   list(): Agent[] {
@@ -77,6 +97,7 @@ export class AgentManager {
     };
 
     this.agents.set(id, agent);
+    db.saveAgent(agent);
     this.broadcast({ type: "spawn", agent });
 
     // Run agent in background
@@ -93,6 +114,7 @@ export class AgentManager {
     if (!agent) return false;
 
     agent.capabilities = { ...agent.capabilities, ...capabilities };
+    db.updateAgentCapabilities(id, agent.capabilities);
     this.broadcast({ type: "capabilities", agentId: id, capabilities: agent.capabilities });
     return true;
   }
@@ -105,6 +127,7 @@ export class AgentManager {
     if (!agent || !agent.sessionId) return { ok: false };
 
     agent.status = "running";
+    db.updateAgentStatus(id, "running");
     this.broadcast({ type: "status", agentId: agent.id, status: "running" });
 
     this.runFollowUp(agent, prompt);
@@ -181,15 +204,18 @@ export class AgentManager {
       for await (const msg of session.stream()) {
         if (msg.session_id && !agent.sessionId) {
           agent.sessionId = msg.session_id;
+          db.updateAgentStatus(agent.id, agent.status, agent.sessionId);
         }
         this.handleMessage(agent, msg);
       }
 
       session.close();
       agent.status = "done";
+      db.updateAgentStatus(agent.id, "done");
       this.broadcast({ type: "done", agentId: agent.id });
     } catch (error) {
       agent.status = "error";
+      db.updateAgentStatus(agent.id, "error");
       agent.messages.push({
         type: "error",
         content: String(error),
@@ -230,6 +256,7 @@ export class AgentManager {
 
       session.close();
       agent.status = "done";
+      db.updateAgentStatus(agent.id, "done");
       this.broadcast({ type: "done", agentId: agent.id });
 
       // If this was an inter-agent message, resolve the pending promise
@@ -238,6 +265,7 @@ export class AgentManager {
       }
     } catch (error) {
       agent.status = "error";
+      db.updateAgentStatus(agent.id, "error");
       agent.messages.push({
         type: "error",
         content: String(error),

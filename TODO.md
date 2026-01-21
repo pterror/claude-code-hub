@@ -68,21 +68,23 @@ interface AgentCapabilities {
 - [x] PATCH endpoint for runtime capability changes
 - [x] UI for capability selection
 
-## Phase 4: Persistence
+## Phase 4: Persistence (DONE)
 
-- [ ] SQLite for agent state
-- [ ] Persist sessions across server restarts
-- [ ] Persist agent todo lists (Claude Code loses them on --continue)
-- [ ] Resume agents after hub restart
-- [ ] Handle "waiting for input" state
+- [x] SQLite for agent state (src/db.ts)
+- [x] Persist agent metadata across hub restarts
+- [x] Load agents from DB on startup
+- [x] Session IDs preserved for Claude Code reconnection
+- [ ] Persist agent todo lists (future - requires SDK support)
+- [ ] Handle "waiting for input" state (future)
 
-## Phase 5: Mobile Polish
+## Phase 5: Mobile Polish (PARTIAL)
 
+- [x] Dark/light mode based on system preference
+- [x] Glassmorphism UI with CSS variables
+- [x] Touch-friendly sizing (0.75rem padding on inputs)
 - [ ] Test UI on actual phone over tailscale
-- [ ] Touch-friendly interactions
 - [ ] Pull-to-refresh
 - [ ] Notifications when agent needs input or completes?
-- [ ] Dark/light mode based on system preference
 
 ## Phase 6: Quality of Life
 
