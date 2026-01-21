@@ -247,24 +247,220 @@
       color: var(--fg);
     }
 
+    .tool-meta {
+      font-size: 0.7rem;
+      color: var(--fg-muted);
+      font-family: ui-monospace, monospace;
+    }
+
     .tool-toggle {
       font-size: 0.7rem;
       color: var(--fg-muted);
     }
 
-    .tool-details {
+    .tool-content {
       margin-top: 0.5rem;
-      padding-top: 0.5rem;
-      border-top: 1px solid var(--glass-border);
-      white-space: pre-wrap;
-      word-break: break-all;
-      max-height: 300px;
+      max-height: 400px;
       overflow-y: auto;
       font-size: 0.75rem;
     }
 
-    .tool-details.collapsed {
+    .tool-content.collapsed {
       display: none;
+    }
+
+    /* File viewer (Read) */
+    .file-viewer {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .file-viewer-header {
+      padding: 0.5rem;
+      background: rgba(0, 0, 0, 0.2);
+      font-family: ui-monospace, monospace;
+      font-size: 0.7rem;
+      color: var(--fg-muted);
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .file-viewer-content {
+      padding: 0.5rem;
+      white-space: pre;
+      overflow-x: auto;
+      font-family: ui-monospace, monospace;
+      line-height: 1.4;
+    }
+
+    .line-number {
+      display: inline-block;
+      width: 3em;
+      color: var(--fg-muted);
+      text-align: right;
+      margin-right: 1em;
+      user-select: none;
+      opacity: 0.5;
+    }
+
+    /* Terminal (Bash) */
+    .terminal {
+      background: #1a1a2e;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .terminal-header {
+      padding: 0.4rem 0.6rem;
+      background: #16162a;
+      font-family: ui-monospace, monospace;
+      font-size: 0.7rem;
+      color: #888;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .terminal-prompt {
+      color: #10b981;
+    }
+
+    .terminal-cmd {
+      color: #e8e8ed;
+    }
+
+    .terminal-output {
+      padding: 0.5rem;
+      color: #ccc;
+      font-family: ui-monospace, monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .terminal-error {
+      color: #f87171;
+    }
+
+    /* Edit diff */
+    .diff-view {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .diff-header {
+      padding: 0.5rem;
+      background: rgba(0, 0, 0, 0.2);
+      font-family: ui-monospace, monospace;
+      font-size: 0.7rem;
+      color: var(--fg-muted);
+    }
+
+    .diff-old {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      padding: 0.25rem 0.5rem;
+      border-left: 2px solid #ef4444;
+    }
+
+    .diff-new {
+      background: rgba(34, 197, 94, 0.15);
+      color: #86efac;
+      padding: 0.25rem 0.5rem;
+      border-left: 2px solid #22c55e;
+    }
+
+    .diff-content {
+      font-family: ui-monospace, monospace;
+      font-size: 0.75rem;
+      white-space: pre-wrap;
+    }
+
+    /* File list (Glob/Grep) */
+    .file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .file-list-item {
+      padding: 0.25rem 0.5rem;
+      font-family: ui-monospace, monospace;
+      font-size: 0.7rem;
+      color: var(--fg-muted);
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 2px;
+    }
+
+    .file-list-item:hover {
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    /* Search results (Grep) */
+    .grep-match {
+      padding: 0.25rem 0.5rem;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 2px;
+      margin-bottom: 0.25rem;
+    }
+
+    .grep-file {
+      font-size: 0.7rem;
+      color: #06b6d4;
+      margin-bottom: 0.125rem;
+    }
+
+    .grep-line {
+      font-family: ui-monospace, monospace;
+      font-size: 0.7rem;
+    }
+
+    .grep-line-num {
+      color: var(--fg-muted);
+      margin-right: 0.5rem;
+    }
+
+    /* Web fetch */
+    .web-result {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .web-url {
+      padding: 0.5rem;
+      background: rgba(0, 0, 0, 0.2);
+      font-family: ui-monospace, monospace;
+      font-size: 0.7rem;
+      color: #ec4899;
+      word-break: break-all;
+    }
+
+    .web-content {
+      padding: 0.5rem;
+      font-size: 0.75rem;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    /* Task/Agent */
+    .task-info {
+      background: rgba(99, 102, 241, 0.1);
+      border-radius: 4px;
+      padding: 0.5rem;
+    }
+
+    .task-type {
+      font-size: 0.7rem;
+      color: #6366f1;
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+    }
+
+    .task-prompt {
+      font-size: 0.8rem;
     }
 
     /* Sidebar agent cards - more compact */
@@ -684,39 +880,204 @@
     const defaultPreset = localStorage.getItem('hub-default-preset') || 'isolated';
     document.getElementById('preset').value = defaultPreset;
 
-    // Tool type detection for coloring
-    function getToolClass(toolName) {
-      if (!toolName) return '';
+    // Tool type detection
+    function getToolType(toolName) {
+      if (!toolName) return 'unknown';
       const name = toolName.toLowerCase();
-      if (name.includes('read')) return 'tool-read';
-      if (name.includes('write') || name.includes('edit')) return 'tool-write';
-      if (name.includes('bash')) return 'tool-bash';
-      if (name.includes('grep') || name.includes('glob')) return 'tool-grep';
-      if (name.includes('web') || name.includes('fetch')) return 'tool-web';
-      if (name.includes('task')) return 'tool-task';
-      return '';
+      if (name === 'read') return 'read';
+      if (name === 'write') return 'write';
+      if (name === 'edit') return 'edit';
+      if (name === 'bash') return 'bash';
+      if (name === 'glob') return 'glob';
+      if (name === 'grep') return 'grep';
+      if (name.includes('web') || name.includes('fetch')) return 'web';
+      if (name === 'task') return 'task';
+      if (name === 'todowrite') return 'todo';
+      return 'unknown';
     }
 
-    // Format messages for display with tool call details
+    function getToolClass(toolType) {
+      const classes = {
+        read: 'tool-read',
+        write: 'tool-write',
+        edit: 'tool-write',
+        bash: 'tool-bash',
+        glob: 'tool-grep',
+        grep: 'tool-grep',
+        web: 'tool-web',
+        task: 'tool-task',
+      };
+      return classes[toolType] || '';
+    }
+
+    // Dedicated tool renderers
+    function renderReadTool(input, result) {
+      const filePath = input?.file_path || 'unknown';
+      const fileName = filePath.split('/').pop();
+      const content = result || '';
+
+      return `
+        <div class="file-viewer">
+          <div class="file-viewer-header">${escapeHtml(filePath)}</div>
+          <div class="file-viewer-content">${escapeHtml(content.slice(0, 5000))}${content.length > 5000 ? '\n...(truncated)' : ''}</div>
+        </div>`;
+    }
+
+    function renderEditTool(input, result) {
+      const filePath = input?.file_path || 'unknown';
+      const oldStr = input?.old_string || '';
+      const newStr = input?.new_string || '';
+
+      return `
+        <div class="diff-view">
+          <div class="diff-header">${escapeHtml(filePath)}</div>
+          <div class="diff-old diff-content">- ${escapeHtml(oldStr)}</div>
+          <div class="diff-new diff-content">+ ${escapeHtml(newStr)}</div>
+        </div>`;
+    }
+
+    function renderWriteTool(input, result) {
+      const filePath = input?.file_path || 'unknown';
+      const content = input?.content || '';
+
+      return `
+        <div class="file-viewer">
+          <div class="file-viewer-header">Writing: ${escapeHtml(filePath)}</div>
+          <div class="file-viewer-content">${escapeHtml(content.slice(0, 3000))}${content.length > 3000 ? '\n...(truncated)' : ''}</div>
+        </div>`;
+    }
+
+    function renderBashTool(input, result) {
+      const cmd = input?.command || '';
+      const desc = input?.description || '';
+      const output = result || '';
+      const isError = output.includes('error:') || output.includes('Error:');
+
+      return `
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-prompt">$</span>
+            <span class="terminal-cmd">${escapeHtml(cmd)}</span>
+          </div>
+          <div class="terminal-output ${isError ? 'terminal-error' : ''}">${escapeHtml(output.slice(0, 3000))}${output.length > 3000 ? '\n...(truncated)' : ''}</div>
+        </div>`;
+    }
+
+    function renderGlobTool(input, result) {
+      const pattern = input?.pattern || '';
+      const path = input?.path || '';
+      const files = (result || '').split('\n').filter(f => f.trim());
+
+      if (files.length === 0) {
+        return `<div class="tool-meta">Pattern: ${escapeHtml(pattern)} ${path ? `in ${escapeHtml(path)}` : ''}</div><div class="file-list"><div class="file-list-item">(no matches)</div></div>`;
+      }
+
+      const shown = files.slice(0, 50);
+      return `
+        <div class="tool-meta">Pattern: ${escapeHtml(pattern)} ${path ? `in ${escapeHtml(path)}` : ''} (${files.length} files)</div>
+        <div class="file-list">
+          ${shown.map(f => `<div class="file-list-item">${escapeHtml(f)}</div>`).join('')}
+          ${files.length > 50 ? `<div class="file-list-item" style="color: var(--fg-muted);">...and ${files.length - 50} more</div>` : ''}
+        </div>`;
+    }
+
+    function renderGrepTool(input, result) {
+      const pattern = input?.pattern || '';
+      const content = result || '';
+
+      // Try to parse grep output (file:line:content format)
+      const lines = content.split('\n').filter(l => l.trim()).slice(0, 30);
+
+      return `
+        <div class="tool-meta">Pattern: ${escapeHtml(pattern)}</div>
+        <div class="file-list">
+          ${lines.map(l => `<div class="grep-line">${escapeHtml(l)}</div>`).join('')}
+          ${content.split('\n').length > 30 ? `<div style="color: var(--fg-muted);">...(more results)</div>` : ''}
+        </div>`;
+    }
+
+    function renderWebTool(input, result) {
+      const url = input?.url || '';
+      const prompt = input?.prompt || '';
+      const content = result || '';
+
+      return `
+        <div class="web-result">
+          <div class="web-url">${escapeHtml(url)}</div>
+          <div class="web-content">${escapeHtml(content.slice(0, 1500))}${content.length > 1500 ? '...' : ''}</div>
+        </div>`;
+    }
+
+    function renderTaskTool(input, result) {
+      const subagentType = input?.subagent_type || 'unknown';
+      const prompt = input?.prompt || '';
+      const taskResult = result || '';
+
+      return `
+        <div class="task-info">
+          <div class="task-type">${escapeHtml(subagentType)} agent</div>
+          <div class="task-prompt">${escapeHtml(prompt.slice(0, 200))}${prompt.length > 200 ? '...' : ''}</div>
+          ${taskResult ? `<div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--fg-muted);">${escapeHtml(taskResult.slice(0, 500))}</div>` : ''}
+        </div>`;
+    }
+
+    function renderGenericTool(toolName, input, result) {
+      const details = input ? JSON.stringify(input, null, 2) : '';
+      const resultStr = result ? (typeof result === 'string' ? result : JSON.stringify(result, null, 2)) : '';
+
+      return `
+        <div style="font-size: 0.75rem;">
+          ${details ? `<div><strong>Input:</strong><pre style="margin: 0.25rem 0;">${escapeHtml(details)}</pre></div>` : ''}
+          ${resultStr ? `<div><strong>Result:</strong><pre style="margin: 0.25rem 0;">${escapeHtml(resultStr.slice(0, 2000))}${resultStr.length > 2000 ? '...' : ''}</pre></div>` : ''}
+        </div>`;
+    }
+
+    // Format messages for display with dedicated tool UIs
     function formatMessages(messages) {
       if (!messages || messages.length === 0) return '<div class="empty">No messages yet</div>';
 
       return messages.map((m, i) => {
         if (m.type === 'tool') {
           const toolName = m.content.replace('Tool: ', '');
-          const toolClass = getToolClass(toolName);
-          const details = m.input ? JSON.stringify(m.input, null, 2) : '';
-          const result = m.result ? (typeof m.result === 'string' ? m.result : JSON.stringify(m.result, null, 2)) : '';
+          const toolType = getToolType(toolName);
+          const toolClass = getToolClass(toolType);
+
+          let toolContent;
+          switch (toolType) {
+            case 'read':
+              toolContent = renderReadTool(m.input, m.result);
+              break;
+            case 'edit':
+              toolContent = renderEditTool(m.input, m.result);
+              break;
+            case 'write':
+              toolContent = renderWriteTool(m.input, m.result);
+              break;
+            case 'bash':
+              toolContent = renderBashTool(m.input, m.result);
+              break;
+            case 'glob':
+              toolContent = renderGlobTool(m.input, m.result);
+              break;
+            case 'grep':
+              toolContent = renderGrepTool(m.input, m.result);
+              break;
+            case 'web':
+              toolContent = renderWebTool(m.input, m.result);
+              break;
+            case 'task':
+              toolContent = renderTaskTool(m.input, m.result);
+              break;
+            default:
+              toolContent = renderGenericTool(toolName, m.input, m.result);
+          }
 
           return `<div class="message message-tool ${toolClass}" data-idx="${i}">
             <div class="tool-header">
               <span class="tool-name">${escapeHtml(toolName)}</span>
               <span class="tool-toggle">▲</span>
             </div>
-            <div class="tool-details">
-              ${details ? `<div><strong>Input:</strong>\n${escapeHtml(details)}</div>` : ''}
-              ${result ? `<div style="margin-top: 0.5rem;"><strong>Result:</strong>\n${escapeHtml(result.slice(0, 2000))}${result.length > 2000 ? '...' : ''}</div>` : ''}
-            </div>
+            <div class="tool-content">${toolContent}</div>
           </div>`;
         } else if (m.content.startsWith('[User]:')) {
           return `<div class="message message-user">${escapeHtml(m.content.slice(7).trim())}</div>`;
@@ -891,14 +1252,14 @@
       if (tab) activateTab(tab.dataset.id);
     });
 
-    // Toggle tool details
+    // Toggle tool content
     document.getElementById('session-views').addEventListener('click', e => {
       if (e.target.closest('.tool-header')) {
         const tool = e.target.closest('.message-tool');
-        const details = tool.querySelector('.tool-details');
+        const content = tool.querySelector('.tool-content');
         const toggle = tool.querySelector('.tool-toggle');
-        details.classList.toggle('collapsed');
-        toggle.textContent = details.classList.contains('collapsed') ? '▼' : '▲';
+        content.classList.toggle('collapsed');
+        toggle.textContent = content.classList.contains('collapsed') ? '▼' : '▲';
       }
     });
 
