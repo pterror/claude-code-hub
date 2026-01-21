@@ -15,7 +15,7 @@ import {
   getDefaultCapabilities,
   applyPreset,
 } from "./capabilities";
-import { createHubMcpServer } from "./hub-mcp";
+import { createAgentMcpServer } from "./hub-mcp";
 import * as db from "./db";
 
 export interface Agent {
@@ -49,10 +49,8 @@ export class AgentManager {
   private agents: Map<string, Agent> = new Map();
   private subscribers: Set<WebSocketClient> = new Set();
   private pendingMessages: Map<string, PendingMessage> = new Map();
-  private hubMcpServer: ReturnType<typeof createHubMcpServer>;
 
   constructor() {
-    this.hubMcpServer = createHubMcpServer(this);
     this.loadFromDb();
   }
 
@@ -185,6 +183,9 @@ export class AgentManager {
 
   private async runAgent(agent: Agent) {
     try {
+      // Create per-agent MCP server with ID baked in (no trust issues)
+      const agentMcpServer = createAgentMcpServer(agent.id, this);
+
       const session = unstable_v2_createSession({
         cwd: agent.cwd,
         permissionMode: "bypassPermissions",
@@ -192,7 +193,7 @@ export class AgentManager {
         allowedTools: ["Read", "Edit", "Write", "Bash", "Glob", "Grep", "WebFetch", "WebSearch"],
         settingSources: ["project"],
         mcpServers: {
-          hub: this.hubMcpServer,
+          hub: agentMcpServer,
         },
         systemPrompt: {
           type: "preset",
@@ -229,6 +230,9 @@ export class AgentManager {
 
   private async runFollowUp(agent: Agent, prompt: string, messageId?: string) {
     try {
+      // Create per-agent MCP server with ID baked in
+      const agentMcpServer = createAgentMcpServer(agent.id, this);
+
       const session = unstable_v2_resumeSession(agent.sessionId!, {
         cwd: agent.cwd,
         permissionMode: "bypassPermissions",
@@ -236,7 +240,7 @@ export class AgentManager {
         allowedTools: ["Read", "Edit", "Write", "Bash", "Glob", "Grep", "WebFetch", "WebSearch"],
         settingSources: ["project"],
         mcpServers: {
-          hub: this.hubMcpServer,
+          hub: agentMcpServer,
         },
       });
 

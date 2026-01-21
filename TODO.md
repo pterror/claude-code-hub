@@ -133,7 +133,6 @@ interface AgentCapabilities {
 - SDK V2 API is `unstable_` prefixed - may change in future versions (V1 fallback exists)
 - Inter-agent messaging not battle-tested yet
 - UI message history not persisted (but Claude Code sessions are - resume works)
-- Hub MCP server tools require agents to pass their own ID (trust-based)
 
 ## Open Questions
 
