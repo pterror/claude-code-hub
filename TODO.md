@@ -22,7 +22,7 @@ Phase 1 complete. Server spawns real Claude Code agents via the SDK.
 - [x] UI shows all agents, can expand/collapse each
 - [x] Tested with multiple agents
 
-## Phase 3: Agent Communication
+## Phase 3: Agent Communication (DONE)
 
 Capability-based communication model. Hub mediates all inter-agent communication.
 
@@ -47,26 +47,26 @@ interface AgentCapabilities {
 
 ### MCP tools exposed to agents (based on capabilities)
 
-- `list_agents()` → returns agent IDs, status (requires canDiscover)
-- `read_agent(id, detail)` → detail: "status" | "summary" | "full" (requires id in canRead)
-- `message_agent(id, msg, timeout_ms?)` → sync call, blocks until response (requires canMessage + target allows)
-- `spawn_agent(cwd, prompt, capabilities?)` → returns agent ID (requires canSpawn)
+- `hub_list_agents(caller_id)` → returns agent IDs, status (requires canDiscover)
+- `hub_read_agent(caller_id, target_id, detail)` → detail: "status" | "summary" | "full" (requires canRead)
+- `hub_message_agent(caller_id, target_id, msg, timeout_ms)` → sync call, blocks until response
+- `hub_spawn_agent(caller_id, cwd, prompt, preset)` → returns agent ID (requires canSpawn)
 
 ### API for human control
 
 - `PATCH /agents/:id/capabilities` - modify mid-session
-- `POST /agents` accepts `capabilities` field
-- UI shows current capabilities, allows toggling
+- `POST /agents` accepts `preset` field (isolated/observer/peer/coordinator)
+- UI shows current preset, allows selection when spawning
 
-### Implementation
+### Implementation (DONE)
 
-- [ ] Define AgentCapabilities type
-- [ ] Add capabilities field to Agent
-- [ ] Create hub MCP server with capability-gated tools
-- [ ] Inject MCP server into agent sessions
-- [ ] Message routing with permission checks
-- [ ] PATCH endpoint for runtime capability changes
-- [ ] UI for capability management
+- [x] Define AgentCapabilities type (src/capabilities.ts)
+- [x] Add capabilities field to Agent
+- [x] Create hub MCP server with capability-gated tools (src/hub-mcp.ts)
+- [x] Inject MCP server into agent sessions
+- [x] Message routing with permission checks
+- [x] PATCH endpoint for runtime capability changes
+- [x] UI for capability selection
 
 ## Phase 4: Persistence
 

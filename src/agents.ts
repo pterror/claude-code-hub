@@ -9,6 +9,13 @@ import {
   unstable_v2_resumeSession,
   type SDKMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import {
+  type AgentCapabilities,
+  type CapabilityPreset,
+  getDefaultCapabilities,
+  applyPreset,
+} from "./capabilities";
+import { createHubMcpServer } from "./hub-mcp";
 
 export interface Agent {
   id: string;
@@ -18,6 +25,7 @@ export interface Agent {
   messages: AgentMessage[];
   createdAt: Date;
   sessionId?: string;
+  capabilities: AgentCapabilities;
 }
 
 export interface AgentMessage {
@@ -28,9 +36,21 @@ export interface AgentMessage {
 
 type WebSocketClient = { send: (data: string) => void };
 
+interface PendingMessage {
+  resolve: (response: string) => void;
+  reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
 export class AgentManager {
   private agents: Map<string, Agent> = new Map();
   private subscribers: Set<WebSocketClient> = new Set();
+  private pendingMessages: Map<string, PendingMessage> = new Map();
+  private hubMcpServer: ReturnType<typeof createHubMcpServer>;
+
+  constructor() {
+    this.hubMcpServer = createHubMcpServer(this);
+  }
 
   list(): Agent[] {
     return Array.from(this.agents.values());
@@ -40,7 +60,11 @@ export class AgentManager {
     return this.agents.get(id);
   }
 
-  async spawn(cwd: string, prompt: string): Promise<Agent> {
+  async spawn(
+    cwd: string,
+    prompt: string,
+    preset: CapabilityPreset = "isolated"
+  ): Promise<Agent> {
     const id = crypto.randomUUID();
     const agent: Agent = {
       id,
@@ -49,6 +73,7 @@ export class AgentManager {
       status: "running",
       messages: [],
       createdAt: new Date(),
+      capabilities: applyPreset(preset),
     };
 
     this.agents.set(id, agent);
@@ -60,16 +85,77 @@ export class AgentManager {
     return agent;
   }
 
+  /**
+   * Update an agent's capabilities at runtime
+   */
+  updateCapabilities(id: string, capabilities: Partial<AgentCapabilities>): boolean {
+    const agent = this.agents.get(id);
+    if (!agent) return false;
+
+    agent.capabilities = { ...agent.capabilities, ...capabilities };
+    this.broadcast({ type: "capabilities", agentId: id, capabilities: agent.capabilities });
+    return true;
+  }
+
+  /**
+   * Send a follow-up message from a human
+   */
   async message(id: string, prompt: string): Promise<{ ok: boolean }> {
     const agent = this.agents.get(id);
     if (!agent || !agent.sessionId) return { ok: false };
 
-    // Resume session and send follow-up
     agent.status = "running";
     this.broadcast({ type: "status", agentId: agent.id, status: "running" });
 
     this.runFollowUp(agent, prompt);
     return { ok: true };
+  }
+
+  /**
+   * Send a message from one agent to another (via MCP tool)
+   */
+  async messageFromAgent(
+    senderId: string,
+    targetId: string,
+    message: string,
+    timeoutMs: number = 60000
+  ): Promise<{ ok: boolean; response?: string; error?: string }> {
+    const target = this.agents.get(targetId);
+    if (!target || !target.sessionId) {
+      return { ok: false, error: "Target agent not found or has no session" };
+    }
+
+    if (target.status !== "done" && target.status !== "waiting") {
+      return { ok: false, error: "Target agent is busy" };
+    }
+
+    // Create a promise that resolves when target responds
+    const messageId = crypto.randomUUID();
+
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        this.pendingMessages.delete(messageId);
+        resolve({ ok: false, error: "Timeout waiting for response" });
+      }, timeoutMs);
+
+      this.pendingMessages.set(messageId, {
+        resolve: (response: string) => {
+          clearTimeout(timeout);
+          this.pendingMessages.delete(messageId);
+          resolve({ ok: true, response });
+        },
+        reject: (error: Error) => {
+          clearTimeout(timeout);
+          this.pendingMessages.delete(messageId);
+          resolve({ ok: false, error: error.message });
+        },
+        timeout,
+      });
+
+      // Send the message to target, prefixed with context
+      const prefixedMessage = `[Message from agent ${senderId}]: ${message}`;
+      this.runFollowUp(target, prefixedMessage, messageId);
+    });
   }
 
   private async runAgent(agent: Agent) {
@@ -79,17 +165,23 @@ export class AgentManager {
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
         allowedTools: ["Read", "Edit", "Write", "Bash", "Glob", "Grep", "WebFetch", "WebSearch"],
-        settingSources: ["project"], // Load CLAUDE.md from agent's working directory
+        settingSources: ["project"],
+        mcpServers: {
+          hub: this.hubMcpServer,
+        },
+        systemPrompt: {
+          type: "preset",
+          preset: "claude_code",
+          append: `\n\nYou are agent ${agent.id} in a multi-agent hub. You have access to hub_* tools for inter-agent communication (if your capabilities allow). Your current capabilities: ${JSON.stringify(agent.capabilities)}`,
+        },
       });
 
       await session.send(agent.prompt);
 
       for await (const msg of session.stream()) {
-        // Capture session ID
         if (msg.session_id && !agent.sessionId) {
           agent.sessionId = msg.session_id;
         }
-
         this.handleMessage(agent, msg);
       }
 
@@ -107,7 +199,7 @@ export class AgentManager {
     }
   }
 
-  private async runFollowUp(agent: Agent, prompt: string) {
+  private async runFollowUp(agent: Agent, prompt: string, messageId?: string) {
     try {
       const session = unstable_v2_resumeSession(agent.sessionId!, {
         cwd: agent.cwd,
@@ -115,17 +207,35 @@ export class AgentManager {
         allowDangerouslySkipPermissions: true,
         allowedTools: ["Read", "Edit", "Write", "Bash", "Glob", "Grep", "WebFetch", "WebSearch"],
         settingSources: ["project"],
+        mcpServers: {
+          hub: this.hubMcpServer,
+        },
       });
 
       await session.send(prompt);
 
+      let lastAssistantMessage = "";
       for await (const msg of session.stream()) {
         this.handleMessage(agent, msg);
+
+        // Capture last assistant text for response
+        if (msg.type === "assistant" && msg.message?.content) {
+          for (const block of msg.message.content) {
+            if ("text" in block && block.text) {
+              lastAssistantMessage = block.text;
+            }
+          }
+        }
       }
 
       session.close();
       agent.status = "done";
       this.broadcast({ type: "done", agentId: agent.id });
+
+      // If this was an inter-agent message, resolve the pending promise
+      if (messageId && this.pendingMessages.has(messageId)) {
+        this.pendingMessages.get(messageId)!.resolve(lastAssistantMessage);
+      }
     } catch (error) {
       agent.status = "error";
       agent.messages.push({
@@ -134,6 +244,10 @@ export class AgentManager {
         timestamp: new Date(),
       });
       this.broadcast({ type: "error", agentId: agent.id, error: String(error) });
+
+      if (messageId && this.pendingMessages.has(messageId)) {
+        this.pendingMessages.get(messageId)!.reject(error as Error);
+      }
     }
   }
 

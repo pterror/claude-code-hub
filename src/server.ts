@@ -27,7 +27,7 @@ const server = Bun.serve({
     // CORS for mobile access
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
     };
 
@@ -42,11 +42,12 @@ const server = Bun.serve({
 
     if (path === "/agents" && req.method === "POST") {
       const body = await req.json();
-      const agent = await agents.spawn(body.cwd, body.prompt);
+      const agent = await agents.spawn(body.cwd, body.prompt, body.preset || "isolated");
       return Response.json(agent, { headers: corsHeaders });
     }
 
-    if (path.startsWith("/agents/") && req.method === "GET") {
+    // Get single agent
+    if (path.match(/^\/agents\/[^/]+$/) && req.method === "GET") {
       const id = path.split("/")[2];
       const agent = agents.get(id);
       if (!agent) return new Response("Not found", { status: 404 });
@@ -58,6 +59,15 @@ const server = Bun.serve({
       const body = await req.json();
       const result = await agents.message(id, body.prompt);
       return Response.json(result, { headers: corsHeaders });
+    }
+
+    // Update agent capabilities
+    if (path.startsWith("/agents/") && path.endsWith("/capabilities") && req.method === "PATCH") {
+      const id = path.split("/")[2];
+      const body = await req.json();
+      const ok = agents.updateCapabilities(id, body);
+      if (!ok) return new Response("Not found", { status: 404 });
+      return Response.json({ ok: true, capabilities: agents.get(id)?.capabilities }, { headers: corsHeaders });
     }
 
     // Serve static UI

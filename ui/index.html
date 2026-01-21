@@ -64,13 +64,22 @@
       padding: 1rem;
       border-radius: 8px;
     }
-    input, button {
+    input, button, select {
       padding: 0.75rem;
       border-radius: 4px;
       border: 1px solid #444;
       background: #1a1a1a;
       color: #e0e0e0;
       font-size: 1rem;
+    }
+    select { cursor: pointer; }
+    .agent-caps {
+      font-size: 0.7rem;
+      color: #666;
+      margin-left: 0.5rem;
+      padding: 0.15rem 0.4rem;
+      background: #333;
+      border-radius: 3px;
     }
     button {
       background: #2563eb;
@@ -87,6 +96,12 @@
   <form class="spawn-form" id="spawn-form">
     <input type="text" id="cwd" placeholder="Working directory (e.g. ~/git/moss)" required>
     <input type="text" id="prompt" placeholder="What should the agent do?" required>
+    <select id="preset">
+      <option value="isolated">isolated (no inter-agent comms)</option>
+      <option value="observer">observer (can see other agents)</option>
+      <option value="peer">peer (can communicate with all)</option>
+      <option value="coordinator">coordinator (can spawn agents)</option>
+    </select>
     <button type="submit">Spawn Agent</button>
   </form>
 
@@ -111,12 +126,20 @@
       render();
     }
 
-    async function spawnAgent(cwd, prompt) {
+    async function spawnAgent(cwd, prompt, preset) {
       await fetch(`${API}/agents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cwd, prompt }),
+        body: JSON.stringify({ cwd, prompt, preset }),
       });
+    }
+
+    function getPresetName(caps) {
+      if (!caps) return 'unknown';
+      if (caps.canSpawn) return 'coordinator';
+      if (caps.canMessage?.length > 0) return 'peer';
+      if (caps.canDiscover) return 'observer';
+      return 'isolated';
     }
 
     function render() {
@@ -130,7 +153,10 @@
         <div class="agent${expandedAgents.has(agent.id) ? ' expanded' : ''}" data-id="${agent.id}">
           <div class="agent-header">
             <span class="agent-cwd">${agent.cwd}</span>
-            <span class="agent-status status-${agent.status}">${agent.status}</span>
+            <span>
+              <span class="agent-status status-${agent.status}">${agent.status}</span>
+              <span class="agent-caps">${getPresetName(agent.capabilities)}</span>
+            </span>
           </div>
           <div class="agent-prompt">${agent.prompt}</div>
           <div class="agent-toggle"></div>
@@ -182,7 +208,8 @@
       e.preventDefault();
       const cwd = document.getElementById('cwd').value;
       const prompt = document.getElementById('prompt').value;
-      await spawnAgent(cwd, prompt);
+      const preset = document.getElementById('preset').value;
+      await spawnAgent(cwd, prompt, preset);
       document.getElementById('cwd').value = '';
       document.getElementById('prompt').value = '';
     });
