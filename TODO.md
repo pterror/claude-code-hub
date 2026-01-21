@@ -14,13 +14,13 @@ Phase 1 complete. Server spawns real Claude Code agents via the SDK.
 - [x] Test with a single agent end-to-end
 - [x] Session resumption for follow-ups (`unstable_v2_resumeSession`)
 
-## Phase 2: Multi-Agent
+## Phase 2: Multi-Agent (DONE)
 
-- [ ] Spawn multiple agents simultaneously
-- [ ] Each agent gets its own CLAUDE.md from its working directory
-- [ ] Track all agents independently
-- [ ] UI shows all agents, can expand/collapse each
-- [ ] Test with 3-4 agents across different repos
+- [x] Spawn multiple agents simultaneously
+- [x] Each agent gets its own CLAUDE.md from its working directory (via settingSources)
+- [x] Track all agents independently
+- [x] UI shows all agents, can expand/collapse each
+- [x] Tested with multiple agents
 
 ## Phase 3: Agent Communication
 
