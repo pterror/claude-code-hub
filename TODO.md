@@ -77,23 +77,23 @@ interface AgentCapabilities {
 - [ ] Persist agent todo lists (future - requires SDK support)
 - [ ] Handle "waiting for input" state (future)
 
-## Phase 5: Mobile Polish (PARTIAL)
+## Phase 5: Mobile Polish (DONE)
 
 - [x] Dark/light mode based on system preference
 - [x] Glassmorphism UI with CSS variables
 - [x] Touch-friendly sizing (0.75rem padding on inputs)
+- [x] Pull-to-refresh (touch gesture)
 - [ ] Test UI on actual phone over tailscale
-- [ ] Pull-to-refresh
 - [ ] Notifications when agent needs input or completes?
 
-## Phase 6: Quality of Life
+## Phase 6: Quality of Life (PARTIAL)
 
-- [ ] Agent presets (common repos + prompts + capabilities)
-- [ ] Quick-spawn buttons for frequent tasks
+- [x] Agent presets (saved to localStorage)
+- [x] Quick-spawn buttons for frequent tasks
+- [x] Search/filter agents
+- [x] Token usage tracking (for quota plans)
 - [ ] Recent agents history
-- [ ] Search/filter agents
 - [ ] Keyboard shortcuts on desktop
-- [ ] Cost tracking (tokens used per agent)
 - [ ] Auto-spawn based on triggers
 
 ## Non-Goals
