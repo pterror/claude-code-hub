@@ -148,4 +148,4 @@ Note: Agent ID is baked into per-agent MCP server instances - no caller_id param
 - [x] Recent agents history (discover sessions from ~/.claude/projects/)
 - [x] Auto-spawn based on triggers (webhooks with payload templating)
 - [x] Message persistence (read from Claude Code session files)
-- [ ] Agent templates with pre-configured CLAUDE.md
+- [x] ~~Agent templates~~ - not needed, repos have their own CLAUDE.md
