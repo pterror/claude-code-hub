@@ -86,6 +86,9 @@ let sourceFilter = 'all';
 /** @type {'running' | 'done' | null} */
 let statusFilter = null;
 
+/** @type {string} */
+let projectFilter = '';
+
 /** @type {Map<string, HTMLElement>} */
 const agentElements = new Map();
 
@@ -127,23 +130,37 @@ let swRegistration = null;
 // ============================================================================
 
 // @ts-ignore - marked is loaded externally
-if (typeof marked !== 'undefined' && typeof hljs !== 'undefined') {
+if (typeof marked !== 'undefined') {
   // @ts-ignore
-  marked.setOptions({
-    /**
-     * @param {string} code
-     * @param {string} lang
-     * @returns {string}
-     */
-    highlight: function(code, lang) {
+  const renderer = new marked.Renderer();
+
+  // Custom code block renderer with syntax highlighting
+  /** @param {string | {text: string, lang?: string}} code @param {string} [lang] */
+  renderer.code = function(code, lang) {
+    // Handle object format (newer marked versions)
+    if (typeof code === 'object') {
+      lang = code.lang;
+      code = code.text;
+    }
+    // @ts-ignore
+    if (typeof hljs !== 'undefined') {
+      let highlighted;
       // @ts-ignore
       if (lang && hljs.getLanguage(lang)) {
         // @ts-ignore
-        return hljs.highlight(code, { language: lang }).value;
+        highlighted = hljs.highlight(code, { language: lang }).value;
+      } else {
+        // @ts-ignore
+        highlighted = hljs.highlightAuto(code).value;
       }
-      // @ts-ignore
-      return hljs.highlightAuto(code).value;
-    },
+      return `<pre><code class="hljs${lang ? ` language-${lang}` : ''}">${highlighted}</code></pre>`;
+    }
+    return `<pre><code>${escapeHtml(code)}</code></pre>`;
+  };
+
+  // @ts-ignore
+  marked.setOptions({
+    renderer,
     breaks: true,
     gfm: true,
   });
@@ -204,6 +221,7 @@ function getToolType(toolName) {
   if (name.includes('web') || name.includes('fetch')) return 'web';
   if (name === 'task') return 'task';
   if (name === 'todowrite') return 'todo';
+  if (name === 'askuserquestion') return 'ask';
   return 'unknown';
 }
 
@@ -222,6 +240,7 @@ function getToolClass(toolType) {
     grep: 'tool-grep',
     web: 'tool-web',
     task: 'tool-task',
+    ask: 'tool-ask',
   };
   return classes[toolType] || '';
 }
@@ -285,22 +304,83 @@ function highlightCode(code, lang) {
 }
 
 /**
+ * Strips system-reminder tags from content
+ * @param {string} content
+ * @returns {string}
+ */
+function stripSystemReminders(content) {
+  return content.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim();
+}
+
+/**
+ * Gets a short param summary for display next to tool name
+ * @param {string} toolType
+ * @param {unknown} input
+ * @returns {string}
+ */
+function getToolParamSummary(toolType, input) {
+  if (!input) return '';
+  const inp = /** @type {Record<string, unknown>} */ (input);
+
+  switch (toolType) {
+    case 'read':
+    case 'write':
+      return typeof inp.file_path === 'string' ? inp.file_path.split('/').pop() || '' : '';
+    case 'edit':
+      return typeof inp.file_path === 'string' ? inp.file_path.split('/').pop() || '' : '';
+    case 'bash': {
+      const cmd = typeof inp.command === 'string' ? inp.command : '';
+      // Show first line, truncated
+      const firstLine = cmd.split('\n')[0];
+      return firstLine.length > 40 ? firstLine.slice(0, 40) + '...' : firstLine;
+    }
+    case 'glob':
+      return typeof inp.pattern === 'string' ? inp.pattern : '';
+    case 'grep':
+      return typeof inp.pattern === 'string' ? inp.pattern : '';
+    case 'web':
+      if (typeof inp.url === 'string') {
+        try {
+          return new URL(inp.url).hostname;
+        } catch {
+          return inp.url.slice(0, 30);
+        }
+      }
+      return '';
+    case 'task':
+      return typeof inp.subagent_type === 'string' ? inp.subagent_type : '';
+    default:
+      return '';
+  }
+}
+
+/**
  * @param {unknown} input
  * @param {string | undefined} result
  * @returns {string}
  */
 function renderReadTool(input, result) {
-  const inp = /** @type {{file_path?: string}} */ (input);
+  const inp = /** @type {{file_path?: string, offset?: number, limit?: number}} */ (input);
   const filePath = inp?.file_path || 'unknown';
-  const rawContent = result || '';
+  const offset = inp?.offset;
+  const limit = inp?.limit;
+  const rawContent = stripSystemReminders(result || '');
   const content = stripLineNumbers(rawContent);
   const lang = getLangFromPath(filePath);
   const truncated = content.length > 5000;
   const displayContent = truncated ? content.slice(0, 5000) + '\n...(truncated)' : content;
 
+  // Build header with optional line range
+  let header = escapeHtml(filePath);
+  if (offset !== undefined && limit !== undefined) {
+    header += ` <span style="opacity: 0.6">(lines ${offset + 1}-${offset + limit})</span>`;
+  } else if (offset !== undefined) {
+    header += ` <span style="opacity: 0.6">(from line ${offset + 1})</span>`;
+  }
+
   return `
     <div class="file-viewer">
-      <div class="file-viewer-header">${escapeHtml(filePath)}</div>
+      <div class="file-viewer-header">${header}</div>
       <pre class="file-viewer-content"><code class="hljs${lang ? ` language-${lang}` : ''}">${highlightCode(displayContent, lang)}</code></pre>
     </div>`;
 }
@@ -448,6 +528,43 @@ function renderTaskTool(input, result) {
 }
 
 /**
+ * @typedef {Object} AskQuestion
+ * @property {string} question
+ * @property {string} header
+ * @property {{label: string, description: string}[]} options
+ * @property {boolean} multiSelect
+ */
+
+/**
+ * @param {unknown} input
+ * @param {string | undefined} _result
+ * @returns {string}
+ */
+function renderAskTool(input, _result) {
+  const inp = /** @type {{questions?: AskQuestion[]}} */ (input);
+  const questions = inp?.questions || [];
+
+  if (questions.length === 0) {
+    return '<div class="ask-empty">No questions</div>';
+  }
+
+  return questions.map(q => `
+    <div class="ask-question">
+      <div class="ask-header">${escapeHtml(q.header || '')}</div>
+      <div class="ask-text">${escapeHtml(q.question || '')}</div>
+      <div class="ask-options">
+        ${(q.options || []).map(opt => `
+          <div class="ask-option">
+            <span class="ask-option-label">${escapeHtml(opt.label)}</span>
+            <span class="ask-option-desc">${escapeHtml(opt.description || '')}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+/**
  * @param {string} _toolName - unused, kept for consistent signature
  * @param {unknown} input
  * @param {string | undefined} result
@@ -508,13 +625,17 @@ function formatMessages(messages) {
         case 'task':
           toolContent = renderTaskTool(m.input, m.result);
           break;
+        case 'ask':
+          toolContent = renderAskTool(m.input, m.result);
+          break;
         default:
           toolContent = renderGenericTool(toolName, m.input, m.result);
       }
 
+      const paramSummary = getToolParamSummary(toolType, m.input);
       return `<div class="message message-tool ${toolClass}" data-idx="${i}">
         <div class="tool-header">
-          <span class="tool-name">${escapeHtml(toolName)}</span>
+          <span class="tool-name">${escapeHtml(toolName)}${paramSummary ? ` <span class="tool-param">${escapeHtml(paramSummary)}</span>` : ''}</span>
           <span class="tool-toggle">\u25B2</span>
         </div>
         <div class="tool-content">${toolContent}</div>
@@ -586,6 +707,7 @@ function openSessionTab(agent) {
 
   openTabs.set(agent.id, { agent, element: tab, viewElement: view });
   activateTab(agent.id);
+  saveOpenTabs();
 
   // Lazy load messages if needed
   if (!agent.messages || agent.messages.length === 0) {
@@ -665,6 +787,7 @@ function closeTab(id) {
   tab.element.remove();
   tab.viewElement.remove();
   openTabs.delete(id);
+  saveOpenTabs();
 
   // Clear sidebar selection
   const sidebarEl = agentElements.get(id);
@@ -680,6 +803,45 @@ function closeTab(id) {
       const noSession = document.getElementById('no-session');
       if (noSession) noSession.style.display = 'flex';
     }
+  }
+}
+
+/**
+ * Saves open tabs to localStorage
+ */
+function saveOpenTabs() {
+  const tabIds = Array.from(openTabs.keys());
+  localStorage.setItem('hub-open-tabs', JSON.stringify(tabIds));
+  if (activeTabId) {
+    localStorage.setItem('hub-active-tab', activeTabId);
+  } else {
+    localStorage.removeItem('hub-active-tab');
+  }
+}
+
+/**
+ * Restores open tabs from localStorage
+ */
+function restoreOpenTabs() {
+  try {
+    const saved = localStorage.getItem('hub-open-tabs');
+    const activeId = localStorage.getItem('hub-active-tab');
+    if (!saved) return;
+
+    const tabIds = JSON.parse(saved);
+    for (const id of tabIds) {
+      const agent = agents.find(a => a.id === id);
+      if (agent && !openTabs.has(id)) {
+        openSessionTab(agent);
+      }
+    }
+
+    // Activate the previously active tab
+    if (activeId && openTabs.has(activeId)) {
+      activateTab(activeId);
+    }
+  } catch {
+    // Ignore localStorage errors
   }
 }
 
@@ -860,7 +1022,38 @@ async function fetchAgents(append = false) {
   hasMore = data.hasMore || false;
   currentOffset = agents.length;
   loading = false;
+  updateProjectFilter();
   render();
+}
+
+/**
+ * Updates the project filter dropdown with unique projects
+ */
+function updateProjectFilter() {
+  const select = /** @type {HTMLSelectElement | null} */ (document.getElementById('project-filter'));
+  if (!select) return;
+
+  // Get unique project paths (parent directories)
+  const projects = new Set(agents.map(a => {
+    // Extract project name from cwd (last directory component)
+    const parts = a.cwd.replace(/^~/, '').split('/').filter(p => p);
+    return parts.length > 0 ? parts[parts.length - 1] : a.cwd;
+  }));
+
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">All projects</option>';
+
+  Array.from(projects).sort().forEach(project => {
+    const option = document.createElement('option');
+    option.value = project;
+    option.textContent = project;
+    select.appendChild(option);
+  });
+
+  // Restore selection if it still exists
+  if (currentValue && projects.has(currentValue)) {
+    select.value = currentValue;
+  }
 }
 
 /**
@@ -944,6 +1137,10 @@ function render() {
     if (statusFilter === 'running' && a.status !== 'running' && a.status !== 'waiting') return false;
     if (statusFilter === 'done' && a.status !== 'done' && a.status !== 'error') return false;
     if (filterText && !a.cwd.toLowerCase().includes(filterText) && !a.prompt.toLowerCase().includes(filterText)) return false;
+    if (projectFilter) {
+      const folderName = a.cwd.split('/').filter(p => p).pop() || a.cwd;
+      if (folderName !== projectFilter) return false;
+    }
     return true;
   });
 
@@ -1277,6 +1474,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Project filter dropdown
+  const projectFilterSelect = document.getElementById('project-filter');
+  if (projectFilterSelect) {
+    projectFilterSelect.addEventListener('change', e => {
+      const target = /** @type {HTMLSelectElement} */ (e.target);
+      projectFilter = target.value;
+      render();
+    });
+  }
+
   // Tab navigation
   const sourceTabs = document.getElementById('source-tabs');
   if (sourceTabs) {
@@ -1469,7 +1676,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initialize
-  fetchAgents();
+  fetchAgents().then(() => restoreOpenTabs());
   fetchRepos();
   connectWS();
 });

@@ -23,6 +23,8 @@
       --fg-muted: #888892;
       --glass-bg: rgba(255, 255, 255, 0.04);
       --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-border-light: rgba(255, 255, 255, 0.12);
+      --glass-border-dark: rgba(0, 0, 0, 0.2);
       --glass-hover: rgba(255, 255, 255, 0.08);
       --primary: rgba(59, 130, 246, 0.7);
       --primary-hover: rgba(59, 130, 246, 0.8);
@@ -39,6 +41,8 @@
         --fg-muted: #666670;
         --glass-bg: rgba(0, 0, 0, 0.03);
         --glass-border: rgba(0, 0, 0, 0.06);
+        --glass-border-light: rgba(255, 255, 255, 0.7);
+        --glass-border-dark: rgba(0, 0, 0, 0.1);
         --glass-hover: rgba(0, 0, 0, 0.06);
         --primary: rgba(37, 99, 235, 0.75);
         --primary-hover: rgba(37, 99, 235, 0.85);
@@ -136,6 +140,10 @@
       font-size: 0.75rem;
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
+      border-top-color: var(--glass-border-light);
+      border-left-color: var(--glass-border-light);
+      border-bottom-color: var(--glass-border-dark);
+      border-right-color: var(--glass-border-dark);
       border-radius: 6px;
       cursor: pointer;
       display: flex;
@@ -267,6 +275,10 @@
     .message-queued {
       background: var(--glass-bg);
       border: 1px dashed var(--glass-border);
+      border-top-color: var(--glass-border-light);
+      border-left-color: var(--glass-border-light);
+      border-bottom-color: var(--glass-border-dark);
+      border-right-color: var(--glass-border-dark);
       color: var(--fg-muted);
       margin-left: 2rem;
       cursor: pointer;
@@ -310,6 +322,10 @@
     .message-assistant {
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
+      border-top-color: var(--glass-border-light);
+      border-left-color: var(--glass-border-light);
+      border-bottom-color: var(--glass-border-dark);
+      border-right-color: var(--glass-border-dark);
     }
 
     /* Markdown styling */
@@ -375,7 +391,11 @@
 
     .message-tool {
       background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
       border-left: 3px solid var(--info);
+      border-top-color: var(--glass-border-light);
+      border-bottom-color: var(--glass-border-dark);
+      border-right-color: var(--glass-border-dark);
       font-family: ui-monospace, monospace;
       font-size: 0.8rem;
     }
@@ -387,6 +407,59 @@
     .tool-grep, .tool-glob { border-left-color: #06b6d4; }
     .tool-web { border-left-color: #ec4899; }
     .tool-task { border-left-color: #6366f1; }
+    .tool-ask { border-left-color: #f472b6; }
+
+    /* AskUserQuestion UI */
+    .ask-question {
+      background: rgba(244, 114, 182, 0.1);
+      border-radius: 6px;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .ask-question:last-child {
+      margin-bottom: 0;
+    }
+
+    .ask-header {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      color: #f472b6;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .ask-text {
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .ask-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .ask-option {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      padding: 0.4rem 0.6rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      border: 1px solid rgba(244, 114, 182, 0.2);
+    }
+
+    .ask-option-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .ask-option-desc {
+      font-size: 0.7rem;
+      color: var(--fg-muted);
+    }
 
     .tool-header {
       display: flex;
@@ -399,6 +472,13 @@
     .tool-name {
       font-weight: 500;
       color: var(--fg);
+    }
+
+    .tool-param {
+      font-weight: 400;
+      color: var(--fg-muted);
+      font-size: 0.85em;
+      margin-left: 0.25rem;
     }
 
     .tool-meta {
@@ -414,7 +494,7 @@
 
     .tool-content {
       margin-top: 0.5rem;
-      max-height: 400px;
+      max-height: 200px;
       overflow-y: auto;
       font-size: 0.75rem;
     }
@@ -481,6 +561,7 @@
 
     .terminal-cmd {
       color: #e8e8ed;
+      white-space: pre-wrap;
     }
 
     .terminal-output {
@@ -489,7 +570,7 @@
       font-family: ui-monospace, monospace;
       white-space: pre-wrap;
       word-break: break-all;
-      max-height: 300px;
+      max-height: 200px;
       overflow-y: auto;
     }
 
@@ -621,6 +702,10 @@
     .agent {
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
+      border-top-color: var(--glass-border-light);
+      border-left-color: var(--glass-border-light);
+      border-bottom-color: var(--glass-border-dark);
+      border-right-color: var(--glass-border-dark);
       border-radius: 8px;
       padding: 0.75rem;
       cursor: pointer;
@@ -766,6 +851,10 @@
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid var(--glass-border);
+      border-top-color: var(--glass-border-light);
+      border-left-color: var(--glass-border-light);
+      border-bottom-color: var(--glass-border-dark);
+      border-right-color: var(--glass-border-dark);
       padding: 1rem;
       border-radius: 12px;
     }
@@ -874,6 +963,10 @@
       gap: 0.25rem;
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
+      border-top-color: var(--glass-border-light);
+      border-left-color: var(--glass-border-light);
+      border-bottom-color: var(--glass-border-dark);
+      border-right-color: var(--glass-border-dark);
       border-radius: 8px;
       padding: 0.25rem;
     }
@@ -979,8 +1072,11 @@
         </form>
 
         <!-- Filter and tabs -->
-        <div class="filter-row" style="margin-bottom: 0.5rem;">
-          <input type="text" class="filter-input" id="filter" placeholder="Filter..." style="font-size: 0.85rem; padding: 0.5rem;">
+        <div class="filter-row" style="margin-bottom: 0.5rem; display: flex; gap: 0.5rem;">
+          <input type="text" class="filter-input" id="filter" placeholder="Filter..." style="flex: 1; font-size: 0.85rem; padding: 0.5rem;">
+          <select id="project-filter" style="font-size: 0.8rem; padding: 0.4rem; max-width: 120px;">
+            <option value="">All projects</option>
+          </select>
         </div>
         <div class="tabs" id="source-tabs" style="margin-bottom: 0.75rem;">
           <button class="tab active" data-source="all">All</button>
