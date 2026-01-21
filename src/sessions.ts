@@ -1,8 +1,8 @@
 /**
  * Claude Code Session Reader
  *
- * Reads conversation history directly from Claude Code's session files.
- * Sessions are stored at ~/.claude/projects/<encoded-path>/<session-id>.jsonl
+ * Uses ~/.claude/history.jsonl as index for fast session discovery.
+ * Falls back to scanning session files if needed.
  */
 
 import { readFileSync, existsSync, readdirSync, statSync, openSync, readSync, closeSync } from "fs";
@@ -16,6 +16,13 @@ export interface DiscoveredSession {
   firstMessage: string;
   createdAt: Date;
   modifiedAt: Date;
+}
+
+interface HistoryEntry {
+  display: string;
+  timestamp: number;
+  project: string;
+  sessionId: string;
 }
 
 /**
@@ -151,10 +158,79 @@ function getFirstUserMessage(filePath: string): string {
 }
 
 /**
- * Discover all Claude Code sessions on disk.
- * Set readPrompts=true to read first message from each file (slower).
+ * Discover all Claude Code sessions from history.jsonl index.
+ * Much faster than scanning individual session files.
  */
-export function discoverSessions(readPrompts = true): DiscoveredSession[] {
+export function discoverSessions(): DiscoveredSession[] {
+  const historyPath = join(homedir(), ".claude", "history.jsonl");
+
+  if (!existsSync(historyPath)) {
+    return discoverSessionsFromFiles();
+  }
+
+  try {
+    const content = readFileSync(historyPath, "utf-8");
+    const lines = content.split("\n").filter(l => l.trim());
+
+    // Group by sessionId, keep first message and timestamps
+    const sessionMap = new Map<string, {
+      firstMessage: string;
+      cwd: string;
+      firstTs: number;
+      lastTs: number;
+    }>();
+
+    for (const line of lines) {
+      try {
+        const entry: HistoryEntry = JSON.parse(line);
+        if (!entry.sessionId || !entry.project) continue;
+
+        const existing = sessionMap.get(entry.sessionId);
+        if (!existing) {
+          sessionMap.set(entry.sessionId, {
+            firstMessage: entry.display?.slice(0, 200) || "",
+            cwd: entry.project,
+            firstTs: entry.timestamp,
+            lastTs: entry.timestamp,
+          });
+        } else {
+          // Update last timestamp
+          if (entry.timestamp > existing.lastTs) {
+            existing.lastTs = entry.timestamp;
+          }
+          if (entry.timestamp < existing.firstTs) {
+            existing.firstTs = entry.timestamp;
+            existing.firstMessage = entry.display?.slice(0, 200) || "";
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    // Convert to array
+    const sessions: DiscoveredSession[] = [];
+    for (const [sessionId, data] of sessionMap) {
+      sessions.push({
+        sessionId,
+        cwd: data.cwd,
+        firstMessage: data.firstMessage,
+        createdAt: new Date(data.firstTs),
+        modifiedAt: new Date(data.lastTs),
+      });
+    }
+
+    // Sort by last activity, most recent first
+    return sessions.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
+  } catch {
+    return discoverSessionsFromFiles();
+  }
+}
+
+/**
+ * Fallback: discover sessions by scanning project directories.
+ */
+function discoverSessionsFromFiles(): DiscoveredSession[] {
   const projectsDir = join(homedir(), ".claude", "projects");
 
   if (!existsSync(projectsDir)) {
@@ -173,15 +249,12 @@ export function discoverSessions(readPrompts = true): DiscoveredSession[] {
       if (!stat.isDirectory()) continue;
 
       const cwd = decodePath(projectDir);
-
-      // Find all .jsonl files in this project
       const files = readdirSync(projectPath).filter(f => f.endsWith(".jsonl"));
 
       for (const file of files) {
         const filePath = join(projectPath, file);
         const sessionId = basename(file, ".jsonl");
 
-        // Skip non-UUID session files (like summaries)
         if (!/^[a-f0-9-]{36}$/.test(sessionId) && !sessionId.startsWith("agent-")) {
           continue;
         }
@@ -191,7 +264,7 @@ export function discoverSessions(readPrompts = true): DiscoveredSession[] {
           sessions.push({
             sessionId,
             cwd,
-            firstMessage: readPrompts ? getFirstUserMessage(filePath) : "",
+            firstMessage: getFirstUserMessage(filePath),
             createdAt: fileStat.birthtime,
             modifiedAt: fileStat.mtime,
           });
@@ -204,6 +277,5 @@ export function discoverSessions(readPrompts = true): DiscoveredSession[] {
     // Ignore errors
   }
 
-  // Sort by modification time, most recent first
   return sessions.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
 }
