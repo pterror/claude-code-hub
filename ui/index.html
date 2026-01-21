@@ -51,33 +51,235 @@
       font-family: system-ui, -apple-system, sans-serif;
       background: var(--bg);
       color: var(--fg);
-      padding: 1rem;
-      max-width: 800px;
-      margin: 0 auto;
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
     h1 {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
+      font-size: 1.25rem;
       font-weight: 500;
+    }
+
+    /* Main layout */
+    .app-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 320px;
+      min-width: 320px;
+      border-right: 1px solid var(--glass-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem;
     }
 
     .agents {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
 
+    /* Main content area */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .session-tabs {
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--glass-border);
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+
+    .session-tab {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .session-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .session-tab .close-tab {
+      opacity: 0.6;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .session-tab .close-tab:hover {
+      opacity: 1;
+    }
+
+    .session-view {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .session-view.active {
+      display: flex;
+    }
+
+    .session-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+    }
+
+    .session-input {
+      padding: 0.75rem;
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .session-input input {
+      flex: 1;
+    }
+
+    .no-session {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--fg-muted);
+    }
+
+    /* Mobile: stack layout */
+    @media (max-width: 768px) {
+      .app-container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        min-width: 100%;
+        max-height: 50vh;
+        border-right: none;
+        border-bottom: 1px solid var(--glass-border);
+      }
+      .sidebar.collapsed {
+        max-height: 48px;
+        overflow: hidden;
+      }
+    }
+
+    /* Message styling in session view */
+    .message {
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .message-user {
+      background: var(--primary);
+      color: white;
+      margin-left: 2rem;
+    }
+
+    .message-assistant {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+    }
+
+    .message-tool {
+      background: var(--glass-bg);
+      border-left: 3px solid var(--info);
+      font-family: ui-monospace, monospace;
+      font-size: 0.8rem;
+    }
+
+    /* Tool type colors */
+    .tool-read { border-left-color: #10b981; }
+    .tool-write, .tool-edit { border-left-color: #f59e0b; }
+    .tool-bash { border-left-color: #8b5cf6; }
+    .tool-grep, .tool-glob { border-left-color: #06b6d4; }
+    .tool-web { border-left-color: #ec4899; }
+    .tool-task { border-left-color: #6366f1; }
+
+    .tool-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      padding: 0.25rem 0;
+    }
+
+    .tool-name {
+      font-weight: 500;
+      color: var(--fg);
+    }
+
+    .tool-toggle {
+      font-size: 0.7rem;
+      color: var(--fg-muted);
+    }
+
+    .tool-details {
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--glass-border);
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 0.75rem;
+    }
+
+    .tool-details.collapsed {
+      display: none;
+    }
+
+    /* Sidebar agent cards - more compact */
     .agent {
       background: var(--glass-bg);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
       border: 1px solid var(--glass-border);
-      border-radius: 12px;
-      padding: 1rem;
+      border-radius: 8px;
+      padding: 0.75rem;
       cursor: pointer;
       transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .agent.selected {
+      border-color: var(--primary);
+      background: var(--glass-hover);
     }
 
     .agent:hover {
@@ -477,96 +679,303 @@
 </head>
 <body>
   <div class="pull-indicator" id="pull-indicator">Pull to refresh...</div>
-  <div class="header">
-    <h1>claude-code-hub <span id="ws-status" class="ws-indicator ws-disconnected" title="Disconnected"></span></h1>
-    <button class="notify-btn" id="notify-btn" title="Enable push notifications">Notify</button>
-  </div>
 
-  <div class="presets" id="presets"></div>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h1>hub <span id="ws-status" class="ws-indicator ws-disconnected" title="Disconnected"></span></h1>
+        <button class="notify-btn" id="notify-btn" title="Enable push notifications">🔔</button>
+      </div>
 
-  <div class="triggers-section" id="triggers-section">
-    <div class="triggers-header" id="triggers-header">
-      <span>Webhooks</span>
-      <span class="triggers-count"></span>
+      <div class="sidebar-content">
+        <!-- Spawn form -->
+        <form class="spawn-form" id="spawn-form" style="margin-bottom: 0.75rem;">
+          <input type="text" id="cwd" placeholder="~/git/project" list="repos-list" required style="font-size: 0.85rem; padding: 0.5rem;">
+          <datalist id="repos-list"></datalist>
+          <input type="text" id="prompt" placeholder="What should the agent do?" required style="font-size: 0.85rem; padding: 0.5rem;">
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <select id="preset" style="flex: 1; font-size: 0.8rem; padding: 0.4rem;">
+              <option value="isolated">isolated</option>
+              <option value="observer">observer</option>
+              <option value="peer">peer</option>
+              <option value="coordinator">coordinator</option>
+            </select>
+            <button type="submit" style="font-size: 0.8rem; padding: 0.4rem 0.75rem;">Spawn</button>
+          </div>
+        </form>
+
+        <!-- Filter and tabs -->
+        <div class="filter-row" style="margin-bottom: 0.5rem;">
+          <input type="text" class="filter-input" id="filter" placeholder="Filter..." style="font-size: 0.85rem; padding: 0.5rem;">
+        </div>
+        <div class="tabs" id="source-tabs" style="margin-bottom: 0.75rem;">
+          <button class="tab active" data-source="all">All</button>
+          <button class="tab" data-source="hub">Hub</button>
+          <button class="tab" data-source="running">Running</button>
+          <button class="tab" data-source="done">Done</button>
+        </div>
+
+        <!-- Agent list -->
+        <div class="agents" id="agents">
+          <div class="empty" style="padding: 1rem; text-align: center; font-size: 0.85rem;">No sessions</div>
+        </div>
+      </div>
     </div>
-    <div class="triggers-content">
-      <div id="triggers-list"></div>
-      <form class="trigger-form" id="trigger-form">
-        <input type="text" id="trigger-name" placeholder="Trigger name (url-safe)" required>
-        <input type="text" id="trigger-cwd" placeholder="Working directory" list="repos-list" required>
-        <input type="text" id="trigger-prompt" placeholder="Prompt (use {{payload.field}} for templating)" required>
-        <button type="submit">Create Trigger</button>
-      </form>
+
+    <!-- Main content -->
+    <div class="main-content">
+      <div class="session-tabs" id="session-tabs"></div>
+
+      <div id="session-views">
+        <div class="no-session" id="no-session">
+          <div style="text-align: center;">
+            <div style="font-size: 1.25rem; margin-bottom: 0.5rem;">Select a session</div>
+            <div style="font-size: 0.85rem;">Click a session in the sidebar to view it</div>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-
-  <div class="filter-row">
-    <input type="text" class="filter-input" id="filter" placeholder="Filter agents...">
-    <div class="tabs" id="source-tabs">
-      <button class="tab active" data-source="all">All</button>
-      <button class="tab" data-source="hub">Hub</button>
-      <button class="tab" data-source="running">Running</button>
-      <button class="tab" data-source="done">Done</button>
-    </div>
-  </div>
-
-  <form class="spawn-form" id="spawn-form">
-    <input type="text" id="cwd" placeholder="Working directory (e.g. ~/git/moss)" list="repos-list" required>
-    <datalist id="repos-list"></datalist>
-    <input type="text" id="prompt" placeholder="What should the agent do?" required>
-    <div style="display: flex; gap: 0.5rem; align-items: center;">
-      <select id="preset" style="flex: 1;">
-        <option value="isolated">isolated (no inter-agent comms)</option>
-        <option value="observer">observer (can see other agents)</option>
-        <option value="peer">peer (can communicate with all)</option>
-        <option value="coordinator">coordinator (can spawn agents)</option>
-      </select>
-      <label style="font-size: 0.75rem; color: var(--fg-muted); white-space: nowrap;">
-        <input type="checkbox" id="remember-preset"> default
-      </label>
-    </div>
-    <button type="submit">Spawn Agent</button>
-  </form>
-
-  <div class="agents" id="agents">
-    <div class="empty">No agents running. Spawn one above.</div>
-  </div>
-
-  <div class="shortcuts">
-    <kbd>/</kbd> prompt <kbd>f</kbd> filter <kbd>r</kbd> refresh <kbd>1-9</kbd> toggle
   </div>
 
   <script>
     const API = window.location.origin;
     let agents = [];
-    const expandedAgents = new Set();
     let filterText = '';
-    let sourceFilter = 'all';  // API filter: all, hub, discovered
-    let statusFilter = null;   // Client filter: running, done, or null for all
-    const agentElements = new Map(); // id -> DOM element
+    let sourceFilter = 'all';
+    let statusFilter = null;
+    const agentElements = new Map();
     let hasMore = false;
     let loading = false;
     let currentOffset = 0;
     const PAGE_SIZE = 50;
 
-    // Load saved presets from localStorage
-    let savedPresets = JSON.parse(localStorage.getItem('hub-presets') || '[]');
+    // Open session tabs
+    const openTabs = new Map(); // id -> { agent, element, viewElement }
+    let activeTabId = null;
+
+    // Message queues per session
+    const messageQueues = new Map(); // id -> string[]
 
     // Load default isolation preset
     const defaultPreset = localStorage.getItem('hub-default-preset') || 'isolated';
     document.getElementById('preset').value = defaultPreset;
 
-    // Save preset as default when checkbox is checked
-    document.getElementById('preset').addEventListener('change', e => {
-      if (document.getElementById('remember-preset').checked) {
-        localStorage.setItem('hub-default-preset', e.target.value);
+    // Tool type detection for coloring
+    function getToolClass(toolName) {
+      if (!toolName) return '';
+      const name = toolName.toLowerCase();
+      if (name.includes('read')) return 'tool-read';
+      if (name.includes('write') || name.includes('edit')) return 'tool-write';
+      if (name.includes('bash')) return 'tool-bash';
+      if (name.includes('grep') || name.includes('glob')) return 'tool-grep';
+      if (name.includes('web') || name.includes('fetch')) return 'tool-web';
+      if (name.includes('task')) return 'tool-task';
+      return '';
+    }
+
+    // Format messages for display with tool call details
+    function formatMessages(messages) {
+      if (!messages || messages.length === 0) return '<div class="empty">No messages yet</div>';
+
+      return messages.map((m, i) => {
+        if (m.type === 'tool') {
+          const toolName = m.content.replace('Tool: ', '');
+          const toolClass = getToolClass(toolName);
+          const details = m.input ? JSON.stringify(m.input, null, 2) : '';
+          const result = m.result ? (typeof m.result === 'string' ? m.result : JSON.stringify(m.result, null, 2)) : '';
+
+          return `<div class="message message-tool ${toolClass}" data-idx="${i}">
+            <div class="tool-header">
+              <span class="tool-name">${escapeHtml(toolName)}</span>
+              <span class="tool-toggle">▲</span>
+            </div>
+            <div class="tool-details">
+              ${details ? `<div><strong>Input:</strong>\n${escapeHtml(details)}</div>` : ''}
+              ${result ? `<div style="margin-top: 0.5rem;"><strong>Result:</strong>\n${escapeHtml(result.slice(0, 2000))}${result.length > 2000 ? '...' : ''}</div>` : ''}
+            </div>
+          </div>`;
+        } else if (m.content.startsWith('[User]:')) {
+          return `<div class="message message-user">${escapeHtml(m.content.slice(7).trim())}</div>`;
+        } else {
+          return `<div class="message message-assistant">${escapeHtml(m.content)}</div>`;
+        }
+      }).join('');
+    }
+
+    // Open a session in a tab
+    function openSessionTab(agent) {
+      if (openTabs.has(agent.id)) {
+        // Already open, just activate
+        activateTab(agent.id);
+        return;
       }
+
+      // Create tab
+      const tab = document.createElement('div');
+      tab.className = 'session-tab';
+      tab.dataset.id = agent.id;
+      tab.innerHTML = `
+        <span class="tab-label">${escapeHtml(agent.cwd.split('/').pop() || agent.cwd)}</span>
+        <span class="close-tab">×</span>
+      `;
+      document.getElementById('session-tabs').appendChild(tab);
+
+      // Create session view
+      const view = document.createElement('div');
+      view.className = 'session-view';
+      view.dataset.id = agent.id;
+      view.innerHTML = `
+        <div class="session-messages" id="messages-${agent.id}">
+          ${formatMessages(agent.messages)}
+        </div>
+        <div class="session-input">
+          <input type="text" placeholder="Send a message..." id="input-${agent.id}">
+          <button type="button" onclick="sendMessage('${agent.id}')">Send</button>
+        </div>
+      `;
+      document.getElementById('session-views').appendChild(view);
+
+      // Add enter key handler
+      view.querySelector('input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') sendMessage(agent.id);
+      });
+
+      openTabs.set(agent.id, { agent, element: tab, viewElement: view });
+      activateTab(agent.id);
+
+      // Lazy load messages if needed
+      if (!agent.messages || agent.messages.length === 0) {
+        loadSessionMessages(agent.id);
+      }
+    }
+
+    async function loadSessionMessages(id) {
+      const messagesEl = document.getElementById(`messages-${id}`);
+      if (!messagesEl) return;
+
+      messagesEl.innerHTML = '<div class="empty">Loading...</div>';
+      try {
+        const res = await fetch(`${API}/agents/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          const agent = agents.find(a => a.id === id);
+          if (agent) {
+            agent.messages = data.messages || [];
+          }
+          const tab = openTabs.get(id);
+          if (tab) {
+            tab.agent.messages = data.messages || [];
+          }
+          messagesEl.innerHTML = formatMessages(data.messages);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+      } catch {
+        messagesEl.innerHTML = '<div class="empty">Failed to load messages</div>';
+      }
+    }
+
+    function activateTab(id) {
+      // Deactivate current
+      if (activeTabId && openTabs.has(activeTabId)) {
+        openTabs.get(activeTabId).element.classList.remove('active');
+        openTabs.get(activeTabId).viewElement.classList.remove('active');
+      }
+
+      // Hide no-session message
+      document.getElementById('no-session').style.display = 'none';
+
+      // Activate new
+      activeTabId = id;
+      const tab = openTabs.get(id);
+      if (tab) {
+        tab.element.classList.add('active');
+        tab.viewElement.classList.add('active');
+
+        // Update sidebar selection
+        agentElements.forEach((el, agentId) => {
+          el.classList.toggle('selected', agentId === id);
+        });
+      }
+    }
+
+    function closeTab(id) {
+      const tab = openTabs.get(id);
+      if (!tab) return;
+
+      tab.element.remove();
+      tab.viewElement.remove();
+      openTabs.delete(id);
+
+      // Clear sidebar selection
+      const sidebarEl = agentElements.get(id);
+      if (sidebarEl) sidebarEl.classList.remove('selected');
+
+      // Activate another tab or show no-session
+      if (activeTabId === id) {
+        activeTabId = null;
+        const remaining = Array.from(openTabs.keys());
+        if (remaining.length > 0) {
+          activateTab(remaining[remaining.length - 1]);
+        } else {
+          document.getElementById('no-session').style.display = 'flex';
+        }
+      }
+    }
+
+    // Send message to session
+    async function sendMessage(id) {
+      const input = document.getElementById(`input-${id}`);
+      const message = input.value.trim();
+      if (!message) return;
+
+      input.value = '';
+      input.disabled = true;
+
+      // Add to queue
+      if (!messageQueues.has(id)) messageQueues.set(id, []);
+      messageQueues.get(id).push(message);
+
+      // Show in UI immediately
+      const messagesEl = document.getElementById(`messages-${id}`);
+      if (messagesEl) {
+        messagesEl.innerHTML += `<div class="message message-user">${escapeHtml(message)}</div>`;
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      try {
+        await fetch(`${API}/agents/${id}/message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: message }),
+        });
+      } catch (err) {
+        console.error('Failed to send message:', err);
+      }
+
+      input.disabled = false;
+      input.focus();
+    }
+
+    // Tab click handling
+    document.getElementById('session-tabs').addEventListener('click', e => {
+      if (e.target.classList.contains('close-tab')) {
+        const tab = e.target.closest('.session-tab');
+        if (tab) closeTab(tab.dataset.id);
+        return;
+      }
+      const tab = e.target.closest('.session-tab');
+      if (tab) activateTab(tab.dataset.id);
     });
 
-    // When checkbox is checked, immediately save current preset as default
-    document.getElementById('remember-preset').addEventListener('change', e => {
-      if (e.target.checked) {
-        localStorage.setItem('hub-default-preset', document.getElementById('preset').value);
+    // Toggle tool details
+    document.getElementById('session-views').addEventListener('click', e => {
+      if (e.target.closest('.tool-header')) {
+        const tool = e.target.closest('.message-tool');
+        const details = tool.querySelector('.tool-details');
+        const toggle = tool.querySelector('.tool-toggle');
+        details.classList.toggle('collapsed');
+        toggle.textContent = details.classList.contains('collapsed') ? '▼' : '▲';
       }
     });
 
@@ -726,21 +1135,9 @@
       el.innerHTML = `
         <div class="agent-header">
           <span class="agent-cwd"></span>
-          <span class="agent-badges">
-            <span class="badge badge-status"></span>
-            <select class="caps-select">
-              <option value="isolated">isolated</option>
-              <option value="observer">observer</option>
-              <option value="peer">peer</option>
-              <option value="coordinator">coordinator</option>
-            </select>
-            <span class="badge badge-source" style="display:none">discovered</span>
-            <span class="agent-cost"></span>
-          </span>
+          <span class="badge badge-status"></span>
         </div>
         <div class="agent-prompt"></div>
-        <div class="agent-toggle"></div>
-        <div class="agent-messages"></div>
       `;
 
       updateAgentElement(el, agent);
@@ -748,35 +1145,17 @@
     }
 
     function updateAgentElement(el, agent) {
-      // Update classes
-      el.classList.toggle('expanded', expandedAgents.has(agent.id));
+      // Update selection state
+      el.classList.toggle('selected', activeTabId === agent.id);
 
-      // Update text content (no innerHTML for user data)
-      el.querySelector('.agent-cwd').textContent = agent.cwd;
-      el.querySelector('.agent-prompt').textContent = agent.prompt;
+      // Update text content
+      el.querySelector('.agent-cwd').textContent = agent.cwd.split('/').pop() || agent.cwd;
+      el.querySelector('.agent-prompt').textContent = agent.prompt.slice(0, 60) + (agent.prompt.length > 60 ? '...' : '');
 
       // Update status badge
       const statusBadge = el.querySelector('.badge-status');
       statusBadge.textContent = agent.status;
       statusBadge.className = `badge badge-status status-${agent.status}`;
-
-      // Update caps select
-      const capsSelect = el.querySelector('.caps-select');
-      capsSelect.value = getPresetName(agent.capabilities);
-      // Disable for discovered sessions (can't change their capabilities)
-      capsSelect.disabled = agent.source === 'discovered';
-
-      // Update source badge
-      const sourceBadge = el.querySelector('.badge-source');
-      sourceBadge.style.display = agent.source === 'discovered' ? '' : 'none';
-
-      // Update cost
-      const costEl = el.querySelector('.agent-cost');
-      costEl.textContent = agent.tokens ? `${(agent.tokens/1000).toFixed(1)}k tok` : '';
-
-      // Update messages
-      const messagesEl = el.querySelector('.agent-messages');
-      messagesEl.textContent = agent.messages.map(m => m.content).join('\n\n');
     }
 
     function render() {
@@ -846,40 +1225,18 @@
       }
     }
 
-    // Event delegation for agent clicks
-    document.getElementById('agents').addEventListener('click', async e => {
-      // Don't toggle when clicking the caps select
+    // Event delegation for agent clicks - open in tab
+    document.getElementById('agents').addEventListener('click', e => {
+      // Don't open tab when clicking caps select
       if (e.target.classList.contains('caps-select')) return;
 
       const agentEl = e.target.closest('.agent');
       if (!agentEl) return;
 
       const id = agentEl.dataset.id;
-      if (expandedAgents.has(id)) {
-        expandedAgents.delete(id);
-        agentEl.classList.remove('expanded');
-      } else {
-        expandedAgents.add(id);
-        agentEl.classList.add('expanded');
-
-        // Lazy load messages if empty
-        const agent = agents.find(a => a.id === id);
-        if (agent && (!agent.messages || agent.messages.length === 0)) {
-          const messagesEl = agentEl.querySelector('.agent-messages');
-          messagesEl.textContent = 'Loading...';
-          try {
-            const res = await fetch(`${API}/agents/${id}`);
-            if (res.ok) {
-              const data = await res.json();
-              agent.messages = data.messages || [];
-              messagesEl.textContent = agent.messages.map(m => m.content).join('\n\n') || '(no messages)';
-            } else {
-              messagesEl.textContent = '(failed to load)';
-            }
-          } catch {
-            messagesEl.textContent = '(failed to load)';
-          }
-        }
+      const agent = agents.find(a => a.id === id);
+      if (agent) {
+        openSessionTab(agent);
       }
     });
 
@@ -955,19 +1312,34 @@
         const data = JSON.parse(event.data);
         if (data.type === 'spawn') {
           agents.push(data.agent);
-          expandedAgents.add(data.agent.id);
           render();
+          // Auto-open newly spawned agents
+          openSessionTab(data.agent);
         } else if (data.type === 'message') {
           const agent = agents.find(a => a.id === data.agentId);
           if (agent) {
-            agent.messages.push({ content: data.content });
+            // Build message object with tool info if present
+            const msg = {
+              content: data.content,
+              type: data.toolName ? 'tool' : (data.content.startsWith('[User]:') ? 'user' : 'assistant'),
+              input: data.toolInput,
+              result: data.toolResult,
+            };
+            agent.messages.push(msg);
             if (data.tokens) agent.tokens = data.tokens;
             if (data.costUsd) agent.costUsd = data.costUsd;
-            // Targeted update instead of full render
-            const el = agentElements.get(data.agentId);
-            if (el) {
-              el.querySelector('.agent-messages').textContent = agent.messages.map(m => m.content).join('\n\n');
-              el.querySelector('.agent-cost').textContent = agent.tokens ? `${(agent.tokens/1000).toFixed(1)}k tok` : '';
+
+            // Update open session tab
+            const messagesEl = document.getElementById(`messages-${data.agentId}`);
+            if (messagesEl) {
+              messagesEl.innerHTML = formatMessages(agent.messages);
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+
+            // Update tab in sidebar too
+            const tab = openTabs.get(data.agentId);
+            if (tab) {
+              tab.agent.messages = agent.messages;
             }
           }
         } else if (data.type === 'done' || data.type === 'error') {
