@@ -310,11 +310,39 @@
       font-family: ui-monospace, monospace;
       margin-right: 0.25rem;
     }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .header h1 {
+      margin-bottom: 0;
+    }
+
+    .notify-btn {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--fg-muted);
+    }
+
+    .notify-btn.enabled {
+      background: var(--success);
+      color: white;
+      border-color: transparent;
+    }
   </style>
 </head>
 <body>
   <div class="pull-indicator" id="pull-indicator">Pull to refresh...</div>
-  <h1>claude-code-hub</h1>
+  <div class="header">
+    <h1>claude-code-hub</h1>
+    <button class="notify-btn" id="notify-btn" title="Enable push notifications">Notify</button>
+  </div>
 
   <div class="presets" id="presets"></div>
 
@@ -700,9 +728,70 @@
     renderPresets();
 
     // Register service worker for PWA
+    let swRegistration = null;
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => { swRegistration = reg; updateNotifyButton(); })
+        .catch(() => {});
     }
+
+    // Push notifications
+    async function updateNotifyButton() {
+      const btn = document.getElementById('notify-btn');
+      if (!('PushManager' in window) || !swRegistration) {
+        btn.style.display = 'none';
+        return;
+      }
+
+      const subscription = await swRegistration.pushManager.getSubscription();
+      btn.classList.toggle('enabled', !!subscription);
+      btn.textContent = subscription ? 'Notify: On' : 'Notify: Off';
+    }
+
+    async function toggleNotifications() {
+      if (!swRegistration) return;
+
+      const existing = await swRegistration.pushManager.getSubscription();
+
+      if (existing) {
+        // Unsubscribe
+        await fetch(`${API}/push/unsubscribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(existing.toJSON()),
+        });
+        await existing.unsubscribe();
+      } else {
+        // Subscribe
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return;
+
+        const res = await fetch(`${API}/push/vapid-public-key`);
+        const { publicKey } = await res.json();
+
+        const subscription = await swRegistration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+
+        await fetch(`${API}/push/subscribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subscription.toJSON()),
+        });
+      }
+
+      updateNotifyButton();
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)));
+    }
+
+    document.getElementById('notify-btn').addEventListener('click', toggleNotifications);
   </script>
 </body>
 </html>

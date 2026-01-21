@@ -6,9 +6,13 @@
  */
 
 import { AgentManager } from "./agents";
+import { initPush, getPublicKey, addSubscription, removeSubscription } from "./push";
 import { readdirSync, existsSync, statSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+
+// Initialize push notifications
+initPush();
 
 function discoverRepos(baseDir: string = join(homedir(), "git")): string[] {
   if (!existsSync(baseDir)) return [];
@@ -52,6 +56,23 @@ const server = Bun.serve({
 
     if (req.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
+    }
+
+    // Push notification endpoints
+    if (path === "/push/vapid-public-key" && req.method === "GET") {
+      return Response.json({ publicKey: getPublicKey() }, { headers: corsHeaders });
+    }
+
+    if (path === "/push/subscribe" && req.method === "POST") {
+      const subscription = await req.json();
+      addSubscription(subscription);
+      return Response.json({ ok: true }, { headers: corsHeaders });
+    }
+
+    if (path === "/push/unsubscribe" && req.method === "POST") {
+      const subscription = await req.json();
+      removeSubscription(subscription);
+      return Response.json({ ok: true }, { headers: corsHeaders });
     }
 
     // API routes

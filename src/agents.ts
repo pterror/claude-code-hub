@@ -17,6 +17,7 @@ import {
 } from "./capabilities";
 import { createAgentMcpServer } from "./hub-mcp";
 import { loadSessionMessages, discoverSessions } from "./sessions";
+import { sendNotification } from "./push";
 import * as db from "./db";
 
 export interface Agent {
@@ -256,6 +257,7 @@ export class AgentManager {
       agent.status = "done";
       db.updateAgentStatus(agent.id, "done");
       this.broadcast({ type: "done", agentId: agent.id });
+      sendNotification("Agent completed", `${agent.cwd.split("/").pop()}: ${agent.prompt.slice(0, 50)}`, agent.id);
     } catch (error) {
       agent.status = "error";
       db.updateAgentStatus(agent.id, "error");
@@ -265,6 +267,7 @@ export class AgentManager {
         timestamp: new Date(),
       });
       this.broadcast({ type: "error", agentId: agent.id, error: String(error) });
+      sendNotification("Agent error", `${agent.cwd.split("/").pop()}: ${String(error).slice(0, 50)}`, agent.id);
     }
   }
 
@@ -308,6 +311,9 @@ export class AgentManager {
       // If this was an inter-agent message, resolve the pending promise
       if (messageId && this.pendingMessages.has(messageId)) {
         this.pendingMessages.get(messageId)!.resolve(lastAssistantMessage);
+      } else {
+        // Only notify for human-initiated follow-ups
+        sendNotification("Agent completed", `${agent.cwd.split("/").pop()}: done`, agent.id);
       }
     } catch (error) {
       agent.status = "error";
@@ -321,6 +327,8 @@ export class AgentManager {
 
       if (messageId && this.pendingMessages.has(messageId)) {
         this.pendingMessages.get(messageId)!.reject(error as Error);
+      } else {
+        sendNotification("Agent error", `${agent.cwd.split("/").pop()}: ${String(error).slice(0, 50)}`, agent.id);
       }
     }
   }

@@ -91,7 +91,7 @@ Note: Agent ID is baked into per-agent MCP server instances - no caller_id param
 - [x] Touch-friendly sizing (0.75rem padding on inputs)
 - [x] Pull-to-refresh (touch gesture)
 - [ ] Test UI on actual phone over tailscale
-- [ ] Notifications when agent needs input or completes?
+- [x] Notifications when agent completes or errors (Web Push)
 
 ## Phase 6: Quality of Life (DONE)
 
@@ -144,7 +144,7 @@ Note: Agent ID is baked into per-agent MCP server instances - no caller_id param
 ## Future Ideas
 
 - [x] PWA with service worker for offline UI caching
-- [ ] Notifications (Web Push) when agent completes/needs input
+- [x] Notifications (Web Push) when agent completes/errors
 - [x] Recent agents history (discover sessions from ~/.claude/projects/)
 - [ ] Auto-spawn based on triggers (webhooks, file changes)
 - [x] Message persistence (read from Claude Code session files)
