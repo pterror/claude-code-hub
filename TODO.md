@@ -135,6 +135,11 @@ Note: Agent ID is baked into per-agent MCP server instances - no caller_id param
 - SDK V2 API is `unstable_` prefixed - may change in future versions (V1 fallback exists)
 - Inter-agent messaging not battle-tested yet
 
+## Watch Out For
+
+- **Inline JS in ui/index.html** - Approaching ~1000 lines. Consider splitting into modules if it grows significantly beyond this.
+- **WebSocket reconnection** - No backoff currently. If server restarts, clients may flood reconnection attempts.
+
 ## Open Questions
 
 - [ ] Best way to handle ANTHROPIC_API_KEY? Env var on server?

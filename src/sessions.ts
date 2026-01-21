@@ -157,11 +157,29 @@ function getFirstUserMessage(filePath: string): string {
   return "";
 }
 
+// Cache for discovered sessions (5 second TTL)
+let sessionCache: { data: DiscoveredSession[]; timestamp: number } | null = null;
+const CACHE_TTL_MS = 5000;
+
+/**
+ * Clear the session discovery cache.
+ * Call this when you know sessions have changed (e.g., after spawning).
+ */
+export function invalidateSessionCache(): void {
+  sessionCache = null;
+}
+
 /**
  * Discover all Claude Code sessions from history.jsonl index.
  * Much faster than scanning individual session files.
+ * Results are cached for 5 seconds.
  */
 export function discoverSessions(): DiscoveredSession[] {
+  // Return cached result if valid
+  if (sessionCache && Date.now() - sessionCache.timestamp < CACHE_TTL_MS) {
+    return sessionCache.data;
+  }
+
   const historyPath = join(homedir(), ".claude", "history.jsonl");
 
   if (!existsSync(historyPath)) {
@@ -221,9 +239,13 @@ export function discoverSessions(): DiscoveredSession[] {
     }
 
     // Sort by last activity, most recent first
-    return sessions.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
+    const sorted = sessions.sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
+    sessionCache = { data: sorted, timestamp: Date.now() };
+    return sorted;
   } catch {
-    return discoverSessionsFromFiles();
+    const fallback = discoverSessionsFromFiles();
+    sessionCache = { data: fallback, timestamp: Date.now() };
+    return fallback;
   }
 }
 

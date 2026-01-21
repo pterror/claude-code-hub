@@ -96,10 +96,10 @@ const server = Bun.serve({
       return Response.json(agent, { headers: corsHeaders });
     }
 
-    // Get single agent
+    // Get single agent (with messages loaded)
     if (path.match(/^\/agents\/[^/]+$/) && req.method === "GET") {
       const id = path.split("/")[2];
-      const agent = agents.get(id);
+      const agent = agents.get(id, true);
       if (!agent) return new Response("Not found", { status: 404 });
       return Response.json(agent, { headers: corsHeaders });
     }

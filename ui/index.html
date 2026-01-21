@@ -137,6 +137,30 @@
       color: var(--fg-muted);
     }
 
+    .caps-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--fg-muted);
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .caps-select:hover {
+      border-color: var(--primary);
+    }
+
+    .caps-select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
     .agent-prompt {
       margin-top: 0.5rem;
       font-size: 0.875rem;
@@ -282,9 +306,34 @@
       flex: 1;
     }
 
-    .source-filter {
-      padding: 0.5rem 0.75rem;
-      font-size: 0.85rem;
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      padding: 0.25rem;
+    }
+
+    .tab {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+      border: none;
+      background: transparent;
+      color: var(--fg-muted);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .tab:hover {
+      background: var(--glass-hover);
+      color: var(--fg);
+    }
+
+    .tab.active {
+      background: var(--primary);
+      color: white;
     }
 
     .badge-source {
@@ -418,7 +467,7 @@
 <body>
   <div class="pull-indicator" id="pull-indicator">Pull to refresh...</div>
   <div class="header">
-    <h1>claude-code-hub</h1>
+    <h1>claude-code-hub <span id="ws-status" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--error); vertical-align: middle; margin-left: 4px;" title="Disconnected"></span></h1>
     <button class="notify-btn" id="notify-btn" title="Enable push notifications">Notify</button>
   </div>
 
@@ -442,23 +491,29 @@
 
   <div class="filter-row">
     <input type="text" class="filter-input" id="filter" placeholder="Filter agents...">
-    <select class="source-filter" id="source-filter">
-      <option value="all">All sessions</option>
-      <option value="hub">Hub only</option>
-      <option value="discovered">Discovered</option>
-    </select>
+    <div class="tabs" id="source-tabs">
+      <button class="tab active" data-source="all">All</button>
+      <button class="tab" data-source="hub">Hub</button>
+      <button class="tab" data-source="running">Running</button>
+      <button class="tab" data-source="done">Done</button>
+    </div>
   </div>
 
   <form class="spawn-form" id="spawn-form">
     <input type="text" id="cwd" placeholder="Working directory (e.g. ~/git/moss)" list="repos-list" required>
     <datalist id="repos-list"></datalist>
     <input type="text" id="prompt" placeholder="What should the agent do?" required>
-    <select id="preset">
-      <option value="isolated">isolated (no inter-agent comms)</option>
-      <option value="observer">observer (can see other agents)</option>
-      <option value="peer">peer (can communicate with all)</option>
-      <option value="coordinator">coordinator (can spawn agents)</option>
-    </select>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <select id="preset" style="flex: 1;">
+        <option value="isolated">isolated (no inter-agent comms)</option>
+        <option value="observer">observer (can see other agents)</option>
+        <option value="peer">peer (can communicate with all)</option>
+        <option value="coordinator">coordinator (can spawn agents)</option>
+      </select>
+      <label style="font-size: 0.75rem; color: var(--fg-muted); white-space: nowrap;">
+        <input type="checkbox" id="remember-preset"> default
+      </label>
+    </div>
     <button type="submit">Spawn Agent</button>
   </form>
 
@@ -475,7 +530,8 @@
     let agents = [];
     const expandedAgents = new Set();
     let filterText = '';
-    let sourceFilter = 'all';
+    let sourceFilter = 'all';  // API filter: all, hub, discovered
+    let statusFilter = null;   // Client filter: running, done, or null for all
     const agentElements = new Map(); // id -> DOM element
     let hasMore = false;
     let loading = false;
@@ -484,6 +540,24 @@
 
     // Load saved presets from localStorage
     let savedPresets = JSON.parse(localStorage.getItem('hub-presets') || '[]');
+
+    // Load default isolation preset
+    const defaultPreset = localStorage.getItem('hub-default-preset') || 'isolated';
+    document.getElementById('preset').value = defaultPreset;
+
+    // Save preset as default when checkbox is checked
+    document.getElementById('preset').addEventListener('change', e => {
+      if (document.getElementById('remember-preset').checked) {
+        localStorage.setItem('hub-default-preset', e.target.value);
+      }
+    });
+
+    // When checkbox is checked, immediately save current preset as default
+    document.getElementById('remember-preset').addEventListener('change', e => {
+      if (e.target.checked) {
+        localStorage.setItem('hub-default-preset', document.getElementById('preset').value);
+      }
+    });
 
     function escapeHtml(text) {
       const div = document.createElement('div');
@@ -496,7 +570,9 @@
       loading = true;
 
       const offset = append ? currentOffset : 0;
-      const res = await fetch(`${API}/agents?source=${sourceFilter}&limit=${PAGE_SIZE}&offset=${offset}`);
+      // Use 'all' source for status-based tabs
+      const apiSource = (statusFilter && sourceFilter === 'all') ? 'all' : sourceFilter;
+      const res = await fetch(`${API}/agents?source=${apiSource}&limit=${PAGE_SIZE}&offset=${offset}`);
       const data = await res.json();
 
       if (append) {
@@ -592,8 +668,23 @@
       render();
     });
 
-    document.getElementById('source-filter').addEventListener('change', e => {
-      sourceFilter = e.target.value;
+    // Tab navigation
+    document.getElementById('source-tabs').addEventListener('click', e => {
+      const tab = e.target.closest('.tab');
+      if (!tab) return;
+
+      // Update active state
+      document.querySelectorAll('#source-tabs .tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const source = tab.dataset.source;
+      if (source === 'running' || source === 'done') {
+        sourceFilter = 'all';
+        statusFilter = source;
+      } else {
+        sourceFilter = source;
+        statusFilter = null;
+      }
       currentOffset = 0;
       fetchAgents();
     });
@@ -626,7 +717,12 @@
           <span class="agent-cwd"></span>
           <span class="agent-badges">
             <span class="badge badge-status"></span>
-            <span class="badge badge-caps"></span>
+            <select class="caps-select">
+              <option value="isolated">isolated</option>
+              <option value="observer">observer</option>
+              <option value="peer">peer</option>
+              <option value="coordinator">coordinator</option>
+            </select>
             <span class="badge badge-source" style="display:none">discovered</span>
             <span class="agent-cost"></span>
           </span>
@@ -653,8 +749,11 @@
       statusBadge.textContent = agent.status;
       statusBadge.className = `badge badge-status status-${agent.status}`;
 
-      // Update caps badge
-      el.querySelector('.badge-caps').textContent = getPresetName(agent.capabilities);
+      // Update caps select
+      const capsSelect = el.querySelector('.caps-select');
+      capsSelect.value = getPresetName(agent.capabilities);
+      // Disable for discovered sessions (can't change their capabilities)
+      capsSelect.disabled = agent.source === 'discovered';
 
       // Update source badge
       const sourceBadge = el.querySelector('.badge-source');
@@ -671,11 +770,14 @@
 
     function render() {
       const container = document.getElementById('agents');
-      const filtered = agents.filter(a =>
-        !filterText ||
-        a.cwd.toLowerCase().includes(filterText) ||
-        a.prompt.toLowerCase().includes(filterText)
-      );
+      const filtered = agents.filter(a => {
+        // Status filter (running/done tabs)
+        if (statusFilter === 'running' && a.status !== 'running' && a.status !== 'waiting') return false;
+        if (statusFilter === 'done' && a.status !== 'done' && a.status !== 'error') return false;
+        // Text filter
+        if (filterText && !a.cwd.toLowerCase().includes(filterText) && !a.prompt.toLowerCase().includes(filterText)) return false;
+        return true;
+      });
 
       // Handle empty state
       if (filtered.length === 0) {
@@ -734,7 +836,10 @@
     }
 
     // Event delegation for agent clicks
-    document.getElementById('agents').addEventListener('click', e => {
+    document.getElementById('agents').addEventListener('click', async e => {
+      // Don't toggle when clicking the caps select
+      if (e.target.classList.contains('caps-select')) return;
+
       const agentEl = e.target.closest('.agent');
       if (!agentEl) return;
 
@@ -745,11 +850,95 @@
       } else {
         expandedAgents.add(id);
         agentEl.classList.add('expanded');
+
+        // Lazy load messages if empty
+        const agent = agents.find(a => a.id === id);
+        if (agent && (!agent.messages || agent.messages.length === 0)) {
+          const messagesEl = agentEl.querySelector('.agent-messages');
+          messagesEl.textContent = 'Loading...';
+          try {
+            const res = await fetch(`${API}/agents/${id}`);
+            if (res.ok) {
+              const data = await res.json();
+              agent.messages = data.messages || [];
+              messagesEl.textContent = agent.messages.map(m => m.content).join('\n\n') || '(no messages)';
+            } else {
+              messagesEl.textContent = '(failed to load)';
+            }
+          } catch {
+            messagesEl.textContent = '(failed to load)';
+          }
+        }
       }
     });
 
+    // Event delegation for capability changes
+    document.getElementById('agents').addEventListener('change', async e => {
+      if (!e.target.classList.contains('caps-select')) return;
+
+      const agentEl = e.target.closest('.agent');
+      if (!agentEl) return;
+
+      const id = agentEl.dataset.id;
+      const preset = e.target.value;
+
+      // Map preset to capabilities
+      const presetCaps = {
+        isolated: { canDiscover: false, canRead: [], canMessage: [], canSpawn: false, canBeMessaged: [] },
+        observer: { canDiscover: true, canRead: ['*'], canMessage: [], canSpawn: false, canBeMessaged: [] },
+        peer: { canDiscover: true, canRead: ['*'], canMessage: ['*'], canSpawn: false, canBeMessaged: ['*'] },
+        coordinator: { canDiscover: true, canRead: ['*'], canMessage: ['*'], canSpawn: true, canBeMessaged: ['*'] },
+      };
+
+      try {
+        const res = await fetch(`${API}/agents/${id}/capabilities`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(presetCaps[preset]),
+        });
+
+        if (res.ok) {
+          // Update local state
+          const agent = agents.find(a => a.id === id);
+          if (agent) {
+            agent.capabilities = presetCaps[preset];
+          }
+        } else {
+          // Revert on failure
+          const agent = agents.find(a => a.id === id);
+          if (agent) {
+            e.target.value = getPresetName(agent.capabilities);
+          }
+        }
+      } catch {
+        // Revert on error
+        const agent = agents.find(a => a.id === id);
+        if (agent) {
+          e.target.value = getPresetName(agent.capabilities);
+        }
+      }
+    });
+
+    let wsBackoff = 1000;
+    let wsConnected = false;
+
+    function updateWsStatus(connected) {
+      wsConnected = connected;
+      const indicator = document.getElementById('ws-status');
+      if (indicator) {
+        indicator.style.background = connected ? 'var(--success)' : 'var(--error)';
+        indicator.title = connected ? 'Connected' : 'Disconnected';
+      }
+    }
+
     function connectWS() {
       const ws = new WebSocket(`${API.replace('http', 'ws')}/ws`);
+
+      ws.onopen = () => {
+        wsBackoff = 1000; // Reset backoff on successful connect
+        updateWsStatus(true);
+      };
+
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === 'spawn') {
@@ -793,9 +982,24 @@
               badge.className = `badge badge-status status-${agent.status}`;
             }
           }
+        } else if (data.type === 'capabilities') {
+          const agent = agents.find(a => a.id === data.agentId);
+          if (agent) {
+            agent.capabilities = data.capabilities;
+            const el = agentElements.get(data.agentId);
+            if (el) {
+              el.querySelector('.caps-select').value = getPresetName(data.capabilities);
+            }
+          }
         }
       };
-      ws.onclose = () => setTimeout(connectWS, 1000);
+
+      ws.onclose = () => {
+        updateWsStatus(false);
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
+        setTimeout(connectWS, wsBackoff);
+        wsBackoff = Math.min(wsBackoff * 2, 30000);
+      };
     }
 
     document.getElementById('spawn-form').addEventListener('submit', async (e) => {
@@ -924,6 +1128,31 @@
       navigator.serviceWorker.register('/sw.js')
         .then(reg => { swRegistration = reg; updateNotifyButton(); })
         .catch(() => {});
+
+      // Listen for update notifications from SW
+      navigator.serviceWorker.addEventListener('message', e => {
+        if (e.data?.type === 'update-available') {
+          // Show a subtle indicator that an update is available
+          showUpdateBanner();
+        }
+      });
+    }
+
+    function showUpdateBanner() {
+      // Only show once per session
+      if (document.getElementById('update-banner')) return;
+
+      const banner = document.createElement('div');
+      banner.id = 'update-banner';
+      banner.style.cssText = `
+        position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
+        background: var(--primary); color: white; padding: 0.5rem 1rem;
+        border-radius: 8px; font-size: 0.85rem; cursor: pointer; z-index: 1000;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      `;
+      banner.textContent = 'Update available - tap to refresh';
+      banner.onclick = () => location.reload();
+      document.body.appendChild(banner);
     }
 
     // Push notifications

@@ -1,10 +1,6 @@
 const CACHE_NAME = 'hub-v1';
-const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
-  );
   self.skipWaiting();
 });
 
@@ -14,15 +10,44 @@ self.addEventListener('activate', e => {
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     )
   );
+  e.waitUntil(clients.claim());
 });
 
 self.addEventListener('fetch', e => {
-  // Network-first for API, cache-first for assets
-  if (e.request.url.includes('/agents') || e.request.url.includes('/ws') || e.request.url.includes('/push')) {
-    return; // Don't cache API
+  // Don't cache API calls
+  if (e.request.url.includes('/agents') ||
+      e.request.url.includes('/ws') ||
+      e.request.url.includes('/push') ||
+      e.request.url.includes('/repos') ||
+      e.request.url.includes('/triggers') ||
+      e.request.url.includes('/hooks')) {
+    return;
   }
+
+  // Stale-while-revalidate for assets
+  // Serve from cache immediately, but fetch in background and update cache
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    caches.open(CACHE_NAME).then(async cache => {
+      const cached = await cache.match(e.request);
+
+      // Fetch fresh version in background
+      const fetchPromise = fetch(e.request).then(response => {
+        if (response.ok) {
+          cache.put(e.request, response.clone());
+
+          // Notify clients if index.html was updated
+          if (e.request.url.endsWith('/') || e.request.url.endsWith('/index.html')) {
+            self.clients.matchAll().then(clients => {
+              clients.forEach(client => client.postMessage({ type: 'update-available' }));
+            });
+          }
+        }
+        return response;
+      }).catch(() => cached); // Fall back to cached on network error
+
+      // Return cached immediately or wait for network
+      return cached || fetchPromise;
+    })
   );
 });
 

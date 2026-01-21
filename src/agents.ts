@@ -16,7 +16,7 @@ import {
   applyPreset,
 } from "./capabilities";
 import { createAgentMcpServer } from "./hub-mcp";
-import { loadSessionMessages, discoverSessions } from "./sessions";
+import { loadSessionMessages, discoverSessions, invalidateSessionCache } from "./sessions";
 import { sendNotification } from "./push";
 import * as db from "./db";
 
@@ -124,8 +124,32 @@ export class AgentManager {
     return { agents: paginated, total, hasMore: offset + limit < total };
   }
 
-  get(id: string): Agent | undefined {
-    return this.agents.get(id);
+  get(id: string, loadMessages = false): Agent | undefined {
+    const agent = this.agents.get(id);
+    if (agent) {
+      return agent;
+    }
+
+    // Look up in discovered sessions
+    const discovered = discoverSessions();
+    const session = discovered.find(s => s.sessionId === id);
+    if (!session) {
+      return undefined;
+    }
+
+    // Build agent with messages if requested
+    const messages = loadMessages ? loadSessionMessages(session.cwd, session.sessionId) : [];
+    return {
+      id: session.sessionId,
+      cwd: session.cwd,
+      prompt: session.firstMessage || "(no prompt)",
+      status: "done",
+      messages,
+      createdAt: session.createdAt,
+      sessionId: session.sessionId,
+      capabilities: getDefaultCapabilities(),
+      source: "discovered",
+    };
   }
 
   async spawn(
@@ -148,6 +172,7 @@ export class AgentManager {
     this.agents.set(id, agent);
     db.saveAgent(agent);
     this.broadcast({ type: "spawn", agent });
+    invalidateSessionCache(); // Clear cache since we added a new agent
 
     // Run agent in background
     this.runAgent(agent);
