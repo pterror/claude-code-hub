@@ -353,6 +353,7 @@
     const expandedAgents = new Set();
     let filterText = '';
     let sourceFilter = 'all';
+    const agentElements = new Map(); // id -> DOM element
 
     // Load saved presets from localStorage
     let savedPresets = JSON.parse(localStorage.getItem('hub-presets') || '[]');
@@ -460,6 +461,59 @@
       return 'isolated';
     }
 
+    function createAgentElement(agent) {
+      const el = document.createElement('div');
+      el.className = 'agent';
+      el.dataset.id = agent.id;
+
+      el.innerHTML = `
+        <div class="agent-header">
+          <span class="agent-cwd"></span>
+          <span class="agent-badges">
+            <span class="badge badge-status"></span>
+            <span class="badge badge-caps"></span>
+            <span class="badge badge-source" style="display:none">discovered</span>
+            <span class="agent-cost"></span>
+          </span>
+        </div>
+        <div class="agent-prompt"></div>
+        <div class="agent-toggle"></div>
+        <div class="agent-messages"></div>
+      `;
+
+      updateAgentElement(el, agent);
+      return el;
+    }
+
+    function updateAgentElement(el, agent) {
+      // Update classes
+      el.classList.toggle('expanded', expandedAgents.has(agent.id));
+
+      // Update text content (no innerHTML for user data)
+      el.querySelector('.agent-cwd').textContent = agent.cwd;
+      el.querySelector('.agent-prompt').textContent = agent.prompt;
+
+      // Update status badge
+      const statusBadge = el.querySelector('.badge-status');
+      statusBadge.textContent = agent.status;
+      statusBadge.className = `badge badge-status status-${agent.status}`;
+
+      // Update caps badge
+      el.querySelector('.badge-caps').textContent = getPresetName(agent.capabilities);
+
+      // Update source badge
+      const sourceBadge = el.querySelector('.badge-source');
+      sourceBadge.style.display = agent.source === 'discovered' ? '' : 'none';
+
+      // Update cost
+      const costEl = el.querySelector('.agent-cost');
+      costEl.textContent = agent.tokens ? `${(agent.tokens/1000).toFixed(1)}k tok` : '';
+
+      // Update messages
+      const messagesEl = el.querySelector('.agent-messages');
+      messagesEl.textContent = agent.messages.map(m => m.content).join('\n\n');
+    }
+
     function render() {
       const container = document.getElementById('agents');
       const filtered = agents.filter(a =>
@@ -468,42 +522,76 @@
         a.prompt.toLowerCase().includes(filterText)
       );
 
+      // Handle empty state
       if (filtered.length === 0) {
-        container.innerHTML = agents.length === 0
-          ? '<div class="empty">No agents running. Spawn one above.</div>'
-          : '<div class="empty">No agents match filter.</div>';
+        agentElements.forEach(el => el.remove());
+        agentElements.clear();
+        if (!container.querySelector('.empty')) {
+          container.innerHTML = agents.length === 0
+            ? '<div class="empty">No agents running. Spawn one above.</div>'
+            : '<div class="empty">No agents match filter.</div>';
+        }
         return;
       }
 
-      container.innerHTML = filtered.map(agent => `
-        <div class="agent${expandedAgents.has(agent.id) ? ' expanded' : ''}" data-id="${agent.id}">
-          <div class="agent-header">
-            <span class="agent-cwd">${agent.cwd}</span>
-            <span class="agent-badges">
-              <span class="badge badge-status status-${agent.status}">${agent.status}</span>
-              <span class="badge badge-caps">${getPresetName(agent.capabilities)}</span>
-              ${agent.source === 'discovered' ? '<span class="badge badge-source">discovered</span>' : ''}
-              ${agent.tokens ? `<span class="agent-cost">${(agent.tokens/1000).toFixed(1)}k tok</span>` : ''}
-            </span>
-          </div>
-          <div class="agent-prompt">${escapeHtml(agent.prompt)}</div>
-          <div class="agent-toggle"></div>
-          <div class="agent-messages">${agent.messages.map(m => escapeHtml(m.content)).join('\n\n')}</div>
-        </div>
-      `).join('');
+      // Remove empty message if present
+      const emptyEl = container.querySelector('.empty');
+      if (emptyEl) emptyEl.remove();
 
-      container.querySelectorAll('.agent').forEach(el => {
-        el.addEventListener('click', () => {
-          const id = el.dataset.id;
-          if (expandedAgents.has(id)) {
-            expandedAgents.delete(id);
+      // Track which IDs are in filtered list
+      const filteredIds = new Set(filtered.map(a => a.id));
+
+      // Remove elements not in filtered list
+      for (const [id, el] of agentElements) {
+        if (!filteredIds.has(id)) {
+          el.remove();
+          agentElements.delete(id);
+        }
+      }
+
+      // Update or create elements in order
+      let prevEl = null;
+      for (const agent of filtered) {
+        let el = agentElements.get(agent.id);
+
+        if (el) {
+          // Update existing
+          updateAgentElement(el, agent);
+        } else {
+          // Create new
+          el = createAgentElement(agent);
+          agentElements.set(agent.id, el);
+        }
+
+        // Ensure correct order
+        const expectedPrev = prevEl;
+        const actualPrev = el.previousElementSibling;
+        if (actualPrev !== expectedPrev) {
+          if (expectedPrev) {
+            expectedPrev.after(el);
           } else {
-            expandedAgents.add(id);
+            container.prepend(el);
           }
-          render();
-        });
-      });
+        }
+
+        prevEl = el;
+      }
     }
+
+    // Event delegation for agent clicks
+    document.getElementById('agents').addEventListener('click', e => {
+      const agentEl = e.target.closest('.agent');
+      if (!agentEl) return;
+
+      const id = agentEl.dataset.id;
+      if (expandedAgents.has(id)) {
+        expandedAgents.delete(id);
+        agentEl.classList.remove('expanded');
+      } else {
+        expandedAgents.add(id);
+        agentEl.classList.add('expanded');
+      }
+    });
 
     function connectWS() {
       const ws = new WebSocket(`${API.replace('http', 'ws')}/ws`);
@@ -519,19 +607,36 @@
             agent.messages.push({ content: data.content });
             if (data.tokens) agent.tokens = data.tokens;
             if (data.costUsd) agent.costUsd = data.costUsd;
-            render();
+            // Targeted update instead of full render
+            const el = agentElements.get(data.agentId);
+            if (el) {
+              el.querySelector('.agent-messages').textContent = agent.messages.map(m => m.content).join('\n\n');
+              el.querySelector('.agent-cost').textContent = agent.tokens ? `${(agent.tokens/1000).toFixed(1)}k tok` : '';
+            }
           }
         } else if (data.type === 'done' || data.type === 'error') {
           const agent = agents.find(a => a.id === data.agentId);
           if (agent) {
             agent.status = data.type === 'done' ? 'done' : 'error';
-            render();
+            // Targeted update
+            const el = agentElements.get(data.agentId);
+            if (el) {
+              const badge = el.querySelector('.badge-status');
+              badge.textContent = agent.status;
+              badge.className = `badge badge-status status-${agent.status}`;
+            }
           }
         } else if (data.type === 'status') {
           const agent = agents.find(a => a.id === data.agentId);
           if (agent) {
             agent.status = data.status;
-            render();
+            // Targeted update
+            const el = agentElements.get(data.agentId);
+            if (el) {
+              const badge = el.querySelector('.badge-status');
+              badge.textContent = agent.status;
+              badge.className = `badge badge-status status-${agent.status}`;
+            }
           }
         }
       };
