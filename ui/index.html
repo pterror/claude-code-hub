@@ -598,83 +598,6 @@
       border-color: transparent;
     }
 
-    .triggers-section {
-      margin-bottom: 1rem;
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-
-    .triggers-header {
-      padding: 0.75rem 1rem;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.9rem;
-      color: var(--fg-muted);
-    }
-
-    .triggers-header:hover {
-      background: var(--glass-hover);
-    }
-
-    .triggers-content {
-      display: none;
-      padding: 0 1rem 1rem;
-    }
-
-    .triggers-section.expanded .triggers-content {
-      display: block;
-    }
-
-    .trigger-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.5rem;
-      margin-bottom: 0.5rem;
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 8px;
-      font-size: 0.85rem;
-    }
-
-    .trigger-item code {
-      font-family: ui-monospace, monospace;
-      font-size: 0.75rem;
-      color: var(--fg-muted);
-    }
-
-    .trigger-delete {
-      padding: 0.25rem 0.5rem;
-      font-size: 0.7rem;
-      background: var(--error);
-      border: none;
-      color: white;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .trigger-form {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      margin-top: 0.75rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid var(--glass-border);
-    }
-
-    .trigger-form input {
-      padding: 0.5rem;
-      font-size: 0.85rem;
-    }
-
-    .trigger-form button {
-      padding: 0.5rem;
-      font-size: 0.85rem;
-    }
   </style>
 </head>
 <body>
@@ -1050,38 +973,6 @@
       isPulling = false;
     });
 
-    // Presets
-    function renderPresets() {
-      const container = document.getElementById('presets');
-      container.innerHTML = savedPresets.map((p, i) => `
-        <button type="button" class="preset-btn" data-index="${i}" title="${p.cwd}\n${p.prompt}">
-          ${escapeHtml(p.name || p.cwd.split('/').pop())}
-        </button>
-      `).join('') + `<button type="button" class="preset-btn add" id="add-preset">+ Save current</button>`;
-
-      container.querySelectorAll('.preset-btn[data-index]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const p = savedPresets[btn.dataset.index];
-          document.getElementById('cwd').value = p.cwd;
-          document.getElementById('prompt').value = p.prompt;
-          document.getElementById('preset').value = p.capability || 'isolated';
-        });
-      });
-
-      document.getElementById('add-preset')?.addEventListener('click', () => {
-        const cwd = document.getElementById('cwd').value;
-        const prompt = document.getElementById('prompt').value;
-        const capability = document.getElementById('preset').value;
-        if (!cwd) return alert('Enter a working directory first');
-        const name = window.prompt('Preset name:', cwd.split('/').pop());
-        if (name) {
-          savedPresets.push({ name, cwd, prompt, capability });
-          localStorage.setItem('hub-presets', JSON.stringify(savedPresets));
-          renderPresets();
-        }
-      });
-    }
-
     // Filter
     document.getElementById('filter').addEventListener('input', e => {
       filterText = e.target.value.toLowerCase();
@@ -1436,75 +1327,9 @@
       } catch {}
     }
 
-    // Triggers
-    let triggers = [];
-
-    async function fetchTriggers() {
-      try {
-        const res = await fetch(`${API}/triggers`);
-        triggers = await res.json();
-        renderTriggers();
-      } catch {}
-    }
-
-    function renderTriggers() {
-      const list = document.getElementById('triggers-list');
-      const count = document.querySelector('.triggers-count');
-      count.textContent = triggers.length ? `(${triggers.length})` : '';
-
-      if (triggers.length === 0) {
-        list.innerHTML = '<div style="color: var(--fg-muted); font-size: 0.8rem;">No triggers. Create one to enable webhooks.</div>';
-        return;
-      }
-
-      list.innerHTML = triggers.map(t => `
-        <div class="trigger-item" data-name="${t.name}">
-          <div>
-            <strong>${t.name}</strong><br>
-            <code>POST /hooks/${t.name}</code>
-          </div>
-          <button class="trigger-delete">Delete</button>
-        </div>
-      `).join('');
-
-      list.querySelectorAll('.trigger-delete').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const item = btn.closest('.trigger-item');
-          const name = item.dataset.name;
-          await fetch(`${API}/triggers/${encodeURIComponent(name)}`, { method: 'DELETE' });
-          fetchTriggers();
-        });
-      });
-    }
-
-    document.getElementById('triggers-header').addEventListener('click', () => {
-      document.getElementById('triggers-section').classList.toggle('expanded');
-    });
-
-    document.getElementById('trigger-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('trigger-name').value;
-      const cwd = document.getElementById('trigger-cwd').value;
-      const prompt = document.getElementById('trigger-prompt').value;
-
-      await fetch(`${API}/triggers`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, cwd, prompt, preset: 'isolated' }),
-      });
-
-      document.getElementById('trigger-name').value = '';
-      document.getElementById('trigger-cwd').value = '';
-      document.getElementById('trigger-prompt').value = '';
-      fetchTriggers();
-    });
-
     fetchAgents();
     fetchRepos();
-    fetchTriggers();
     connectWS();
-    renderPresets();
 
     // Register service worker for PWA
     let swRegistration = null;

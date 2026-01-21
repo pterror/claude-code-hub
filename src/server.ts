@@ -7,6 +7,7 @@
 
 import { AgentManager } from "./agents";
 import { initPush, getPublicKey, addSubscription, removeSubscription } from "./push";
+import { discoverSessions } from "./sessions";
 import * as db from "./db";
 import { readdirSync, existsSync, statSync } from "fs";
 import { join } from "path";
@@ -15,20 +16,18 @@ import { homedir } from "os";
 // Initialize push notifications
 initPush();
 
-function discoverRepos(baseDir: string = join(homedir(), "git")): string[] {
-  if (!existsSync(baseDir)) return [];
-
+function discoverRepos(): string[] {
+  // Get unique cwds from discovered Claude Code sessions
+  const repos = new Set<string>();
   try {
-    return readdirSync(baseDir)
-      .filter(name => {
-        const fullPath = join(baseDir, name);
-        const gitPath = join(fullPath, ".git");
-        return statSync(fullPath).isDirectory() && existsSync(gitPath);
-      })
-      .map(name => join(baseDir, name));
-  } catch {
-    return [];
-  }
+    const sessions = discoverSessions();
+    for (const session of sessions) {
+      if (existsSync(session.cwd)) {
+        repos.add(session.cwd);
+      }
+    }
+  } catch {}
+  return Array.from(repos).sort();
 }
 
 const PORT = Number(process.env.PORT) || 3000;
