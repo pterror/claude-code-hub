@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>claude-code-hub</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      padding: 1rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    .agents { display: flex; flex-direction: column; gap: 0.5rem; }
+    .agent {
+      background: #2a2a2a;
+      border-radius: 8px;
+      padding: 1rem;
+      cursor: pointer;
+    }
+    .agent:hover { background: #333; }
+    .agent-header { display: flex; justify-content: space-between; align-items: center; }
+    .agent-cwd { font-size: 0.875rem; color: #888; font-family: monospace; }
+    .agent-status {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .status-running { background: #2563eb; }
+    .status-done { background: #16a34a; }
+    .status-error { background: #dc2626; }
+    .status-waiting { background: #ca8a04; }
+    .agent-prompt { margin-top: 0.5rem; font-size: 0.875rem; }
+    .agent-messages {
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      color: #aaa;
+      font-family: monospace;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .spawn-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      background: #2a2a2a;
+      padding: 1rem;
+      border-radius: 8px;
+    }
+    input, button {
+      padding: 0.75rem;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      font-size: 1rem;
+    }
+    button {
+      background: #2563eb;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+    .empty { color: #666; text-align: center; padding: 2rem; }
+  </style>
+</head>
+<body>
+  <h1>claude-code-hub</h1>
+
+  <form class="spawn-form" id="spawn-form">
+    <input type="text" id="cwd" placeholder="Working directory (e.g. ~/git/moss)" required>
+    <input type="text" id="prompt" placeholder="What should the agent do?" required>
+    <button type="submit">Spawn Agent</button>
+  </form>
+
+  <div class="agents" id="agents">
+    <div class="empty">No agents running. Spawn one above.</div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    let agents = [];
+
+    async function fetchAgents() {
+      const res = await fetch(`${API}/agents`);
+      agents = await res.json();
+      render();
+    }
+
+    async function spawnAgent(cwd, prompt) {
+      await fetch(`${API}/agents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd, prompt }),
+      });
+    }
+
+    function render() {
+      const container = document.getElementById('agents');
+      if (agents.length === 0) {
+        container.innerHTML = '<div class="empty">No agents running. Spawn one above.</div>';
+        return;
+      }
+
+      container.innerHTML = agents.map(agent => `
+        <div class="agent" data-id="${agent.id}">
+          <div class="agent-header">
+            <span class="agent-cwd">${agent.cwd}</span>
+            <span class="agent-status status-${agent.status}">${agent.status}</span>
+          </div>
+          <div class="agent-prompt">${agent.prompt}</div>
+          <div class="agent-messages">
+            ${agent.messages.map(m => m.content).join('<br>')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // WebSocket for real-time updates
+    function connectWS() {
+      const ws = new WebSocket(`${API.replace('http', 'ws')}/ws`);
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'spawn') {
+          agents.push(data.agent);
+          render();
+        } else if (data.type === 'message') {
+          const agent = agents.find(a => a.id === data.agentId);
+          if (agent) {
+            agent.messages.push({ content: data.content });
+            render();
+          }
+        } else if (data.type === 'done' || data.type === 'error') {
+          const agent = agents.find(a => a.id === data.agentId);
+          if (agent) {
+            agent.status = data.type === 'done' ? 'done' : 'error';
+            render();
+          }
+        }
+      };
+      ws.onclose = () => setTimeout(connectWS, 1000);
+    }
+
+    document.getElementById('spawn-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const cwd = document.getElementById('cwd').value;
+      const prompt = document.getElementById('prompt').value;
+      await spawnAgent(cwd, prompt);
+      document.getElementById('cwd').value = '';
+      document.getElementById('prompt').value = '';
+    });
+
+    fetchAgents();
+    connectWS();
+  </script>
+</body>
+</html>
