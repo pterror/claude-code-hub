@@ -1,36 +1,16 @@
-# claude-code-hub
+# CLAUDE.md
+
+Behavioral rules for Claude Code in the claude-code-hub repository.
+
+## Project Overview
 
 Simple orchestration hub for Claude Code agents.
 
-## Why This Exists
+**The problem:** Running multiple Claude Code agents means multiple terminal windows. You can't easily check on them from your phone while away from your desk.
 
-**The dinner problem:** You're working with Claude Code agents on your desktop. You want to eat dinner downstairs. Currently you either abandon your agents or bring dinner to your desk.
+**The solution:** A server that spawns agents via the Agent SDK, tracks their status, and exposes an API for UIs to connect. Works over tailscale for phone access.
 
-**The 6 terminals problem:** Running multiple agents means multiple terminal windows. Squished, zoomed out, barely usable. Adding a 7th? Just cope.
-
-## What This Is
-
-A server that:
-- Spawns Claude Code agents (via Agent SDK) to different working directories
-- Tracks their status
-- Exposes an API for UIs to connect
-- Works over tailscale - access from your phone
-
-Plus a reference web UI that:
-- Shows all running agents
-- Lets you interact with any of them
-- Works on mobile
-
-## What This Is Not
-
-- Not "swarm intelligence" or "hive mind orchestration"
-- Not 54+ specialized agents
-- Not 250k lines of code
-- Not enterprise anything
-
-Just the glue needed to run a few agents across your repos and check on them from your phone.
-
-## Architecture
+### Architecture
 
 ```
 [Your phone] --tailscale--> [Hub server on your machine]
@@ -41,7 +21,13 @@ Just the glue needed to run a few agents across your repos and check on them fro
               (cwd: ~/git/moss)  ...            ...
 ```
 
-The server uses the Claude Agent SDK. Each agent is a real Claude Code instance with full capabilities.
+### What This Is Not
+
+- Not "swarm intelligence" or "hive mind orchestration"
+- Not dozens of specialized agents
+- Not enterprise anything
+
+Just the glue needed to run a few agents across your repos and check on them from your phone.
 
 ## Core Requirements
 
@@ -50,7 +36,7 @@ The server uses the Claude Agent SDK. Each agent is a real Claude Code instance 
 3. **Simple** - minimal code, you can read and understand all of it
 4. **Mobile-friendly UI** - the whole point is phone access
 
-## Running
+## Development
 
 ```bash
 npm install
@@ -62,20 +48,53 @@ Server runs on `http://localhost:3000` by default. Access via tailscale IP from 
 
 ## API
 
-### POST /agents
-Spawn a new agent.
-```json
-{ "cwd": "~/git/moss", "prompt": "update logging format" }
-```
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/agents` | POST | Spawn new agent with `{ "cwd": "...", "prompt": "..." }` |
+| `/agents` | GET | List all agents and status |
+| `/agents/:id` | GET | Get agent details and recent output |
+| `/agents/:id/message` | POST | Send follow-up message to agent |
+| `/ws` | WebSocket | Real-time updates for all agent activity |
 
-### GET /agents
-List all agents and their status.
+## Core Rule
 
-### GET /agents/:id
-Get agent details and recent output.
+**Note things down immediately:**
+- Bugs/issues → fix or add to TODO.md
+- Design decisions → docs/ or code comments
+- Future work → TODO.md
+- Key insights → this file
 
-### POST /agents/:id/message
-Send a follow-up message to an agent.
+**Do the work properly.** When asked to analyze X, actually read X - don't synthesize from conversation.
 
-### WebSocket /ws
-Real-time updates for all agent activity.
+## Behavioral Patterns
+
+From ecosystem-wide session analysis:
+
+- **Question scope early:** Before implementing, ask whether it belongs in this module
+- **Check consistency:** Look at how similar things are done elsewhere in the codebase
+- **Implement fully:** No silent arbitrary caps or incomplete features
+- **Name for purpose:** Avoid names that describe one consumer
+- **Verify before stating:** Don't assert API behavior or codebase facts without checking
+
+## Commit Convention
+
+Use conventional commits: `type(scope): message`
+
+Types:
+- `feat` - New feature
+- `fix` - Bug fix
+- `refactor` - Code change that neither fixes a bug nor adds a feature
+- `docs` - Documentation only
+- `chore` - Maintenance (deps, CI, etc.)
+- `test` - Adding or updating tests
+
+## Negative Constraints
+
+Do not:
+- Announce actions ("I will now...") - just do them
+- Leave work uncommitted
+- Over-engineer - this is glue code, keep it simple
+- Add "enterprise" features - YAGNI
+- Use path dependencies in Cargo.toml - causes clippy to stash changes across repos
+- Use `--no-verify` - fix the issue or fix the hook
+- Assume tools are missing - check if `nix develop` is available for the right environment
