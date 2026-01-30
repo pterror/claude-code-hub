@@ -272,6 +272,39 @@
       margin-left: 2rem;
     }
 
+    /* Markdown in user messages */
+    .message-user p { margin: 0 0 0.5rem 0; }
+    .message-user p:last-child { margin-bottom: 0; }
+    .message-user code {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.8rem;
+    }
+    .message-user pre {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 0.5rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 0.25rem 0;
+    }
+    .message-user a { color: white; text-decoration: underline; }
+    .message-user h1, .message-user h2, .message-user h3 {
+      margin: 0.5rem 0 0.25rem 0;
+      font-weight: 600;
+    }
+    .message-user h1 { font-size: 1.1rem; }
+    .message-user h2 { font-size: 1rem; }
+    .message-user h3 { font-size: 0.9rem; }
+    .message-user ul, .message-user ol { margin: 0.25rem 0; padding-left: 1.25rem; }
+    .message-user blockquote {
+      border-left: 3px solid rgba(255, 255, 255, 0.4);
+      margin: 0.25rem 0;
+      padding-left: 0.75rem;
+      opacity: 0.9;
+    }
+
     .message-queued {
       background: var(--glass-bg);
       border: 1px dashed var(--glass-border);
@@ -408,6 +441,9 @@
     .tool-web { border-left-color: #ec4899; }
     .tool-task { border-left-color: #6366f1; }
     .tool-ask { border-left-color: #f472b6; }
+    .tool-plan { border-left-color: #a855f7; }
+    .tool-taskmgmt { border-left-color: #14b8a6; }
+    .tool-todo { border-left-color: #f97316; }
 
     /* AskUserQuestion UI */
     .ask-question {
@@ -511,6 +547,140 @@
       max-height: 200px;
       overflow-y: auto;
       font-size: 0.75rem;
+    }
+
+    /* Plan mode tools (ExitPlanMode) - needs more room for markdown */
+    .tool-plan .tool-content {
+      max-height: 400px;
+    }
+
+    .plan-view {
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .plan-status {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .plan-status-accepted {
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+    }
+
+    .plan-status-rejected {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+
+    .plan-status-pending {
+      background: rgba(234, 179, 8, 0.2);
+      color: #eab308;
+    }
+
+    .plan-body {
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+
+    .plan-body h1, .plan-body h2, .plan-body h3 {
+      margin: 0.5rem 0 0.25rem 0;
+      font-weight: 600;
+    }
+
+    .plan-body h1 { font-size: 1rem; }
+    .plan-body h2 { font-size: 0.9rem; }
+    .plan-body h3 { font-size: 0.85rem; }
+    .plan-body p { margin: 0 0 0.4rem 0; }
+    .plan-body ul, .plan-body ol { margin: 0.25rem 0; padding-left: 1.25rem; }
+    .plan-body code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.75rem;
+    }
+    .plan-body pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.5rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 0.25rem 0;
+    }
+
+    .plan-enter {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: #a855f7;
+      font-weight: 500;
+    }
+
+    /* TaskCreate / TaskUpdate */
+    .taskmgmt-view {
+      font-size: 0.8rem;
+    }
+
+    .taskmgmt-subject {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .taskmgmt-desc {
+      color: var(--fg-muted);
+      font-size: 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .taskmgmt-field {
+      display: flex;
+      gap: 0.35rem;
+      font-size: 0.7rem;
+      margin-bottom: 0.15rem;
+    }
+
+    .taskmgmt-field-label {
+      color: var(--fg-muted);
+      font-weight: 500;
+    }
+
+    /* TodoWrite */
+    .todo-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .todo-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.4rem;
+      padding: 0.2rem 0;
+      font-size: 0.8rem;
+    }
+
+    .todo-check {
+      flex-shrink: 0;
+      font-size: 0.85rem;
+      line-height: 1.2;
+    }
+
+    .todo-item-completed .todo-text {
+      text-decoration: line-through;
+      color: var(--fg-muted);
+    }
+
+    .todo-item-in_progress .todo-check {
+      color: #eab308;
+    }
+
+    .todo-item-completed .todo-check {
+      color: #22c55e;
     }
 
     .tool-content.collapsed {

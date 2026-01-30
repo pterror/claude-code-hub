@@ -225,6 +225,9 @@ function getToolType(toolName) {
   if (name === 'task') return 'task';
   if (name === 'todowrite') return 'todo';
   if (name === 'askuserquestion') return 'ask';
+  if (name === 'exitplanmode') return 'plan';
+  if (name === 'enterplanmode') return 'plan-enter';
+  if (name === 'taskcreate' || name === 'taskupdate' || name === 'taskget' || name === 'tasklist') return 'taskmgmt';
   return 'unknown';
 }
 
@@ -244,6 +247,10 @@ function getToolClass(toolType) {
     web: 'tool-web',
     task: 'tool-task',
     ask: 'tool-ask',
+    plan: 'tool-plan',
+    'plan-enter': 'tool-plan',
+    taskmgmt: 'tool-taskmgmt',
+    todo: 'tool-todo',
   };
   return classes[toolType] || '';
 }
@@ -352,6 +359,16 @@ function getToolParamSummary(toolType, input) {
       return '';
     case 'task':
       return typeof inp.subagent_type === 'string' ? inp.subagent_type : '';
+    case 'plan':
+    case 'plan-enter':
+      return '';
+    case 'taskmgmt': {
+      if (typeof inp.subject === 'string') return inp.subject.slice(0, 30);
+      if (typeof inp.taskId === 'string' || typeof inp.taskId === 'number') return `#${inp.taskId}`;
+      return '';
+    }
+    case 'todo':
+      return '';
     default:
       return '';
   }
@@ -581,6 +598,103 @@ function renderAskTool(input, _result, answers) {
 }
 
 /**
+ * @param {unknown} input
+ * @param {string | undefined} result
+ * @returns {string}
+ */
+function renderPlanTool(input, result) {
+  const inp = /** @type {{plan?: string, allowedPrompts?: unknown[], launchSwarm?: boolean}} */ (input);
+  const plan = inp?.plan || '';
+
+  // Determine status from result
+  let statusHtml = '';
+  if (result) {
+    // Error results mean rejection
+    const isRejected = result.includes('rejected') || result.includes('error') || result.includes('not approved');
+    if (isRejected) {
+      statusHtml = `<div class="plan-status plan-status-rejected">Rejected</div>`;
+    } else {
+      statusHtml = `<div class="plan-status plan-status-accepted">Approved</div>`;
+    }
+  } else {
+    statusHtml = `<div class="plan-status plan-status-pending">Pending</div>`;
+  }
+
+  // @ts-ignore - marked is loaded externally
+  const planHtml = typeof marked !== 'undefined' ? marked.parse(plan) : escapeHtml(plan);
+
+  return `
+    <div class="plan-view">
+      ${statusHtml}
+      <div class="plan-body">${planHtml}</div>
+    </div>`;
+}
+
+/**
+ * @param {unknown} _input
+ * @param {string | undefined} _result
+ * @returns {string}
+ */
+function renderEnterPlanTool(_input, _result) {
+  return `<div class="plan-enter">Entered plan mode</div>`;
+}
+
+/**
+ * @param {string} toolName
+ * @param {unknown} input
+ * @param {string | undefined} result
+ * @returns {string}
+ */
+function renderTaskMgmtTool(toolName, input, result) {
+  const inp = /** @type {Record<string, unknown>} */ (input || {});
+  const name = toolName.toLowerCase();
+
+  if (name === 'taskcreate') {
+    const subject = typeof inp.subject === 'string' ? inp.subject : '';
+    const desc = typeof inp.description === 'string' ? inp.description : '';
+    return `
+      <div class="taskmgmt-view">
+        <div class="taskmgmt-subject">${escapeHtml(subject)}</div>
+        ${desc ? `<div class="taskmgmt-desc">${escapeHtml(desc.slice(0, 200))}${desc.length > 200 ? '...' : ''}</div>` : ''}
+      </div>`;
+  }
+
+  if (name === 'taskupdate') {
+    const parts = [];
+    if (inp.taskId) parts.push(`<div class="taskmgmt-field"><span class="taskmgmt-field-label">Task:</span> #${escapeHtml(String(inp.taskId))}</div>`);
+    if (inp.status) parts.push(`<div class="taskmgmt-field"><span class="taskmgmt-field-label">Status:</span> ${escapeHtml(String(inp.status))}</div>`);
+    if (inp.subject) parts.push(`<div class="taskmgmt-field"><span class="taskmgmt-field-label">Subject:</span> ${escapeHtml(String(inp.subject))}</div>`);
+    return `<div class="taskmgmt-view">${parts.join('')}</div>`;
+  }
+
+  // TaskGet / TaskList - show result
+  const resultStr = result || '';
+  return `<div class="taskmgmt-view"><pre style="margin: 0; font-size: 0.75rem;">${escapeHtml(resultStr.slice(0, 1000))}${resultStr.length > 1000 ? '...' : ''}</pre></div>`;
+}
+
+/**
+ * @param {unknown} input
+ * @param {string | undefined} _result
+ * @returns {string}
+ */
+function renderTodoTool(input, _result) {
+  const inp = /** @type {{todos?: Array<{content: string, status: string, id?: string}>}} */ (input);
+  const todos = inp?.todos || [];
+
+  if (todos.length === 0) {
+    return '<div style="font-size: 0.75rem; color: var(--fg-muted);">(empty todo list)</div>';
+  }
+
+  const items = todos.map(t => {
+    const status = t.status || 'pending';
+    const check = status === 'completed' ? '\u2713' : status === 'in_progress' ? '\u25CB' : '\u25CB';
+    return `<li class="todo-item todo-item-${escapeHtml(status)}"><span class="todo-check">${check}</span><span class="todo-text">${escapeHtml(t.content)}</span></li>`;
+  }).join('');
+
+  return `<ul class="todo-list">${items}</ul>`;
+}
+
+/**
  * @param {string} _toolName - unused, kept for consistent signature
  * @param {unknown} input
  * @param {string | undefined} result
@@ -645,6 +759,18 @@ function renderMessage(m, i) {
       case 'ask':
         toolContent = renderAskTool(m.input, m.result, m.answers);
         break;
+      case 'plan':
+        toolContent = renderPlanTool(m.input, m.result);
+        break;
+      case 'plan-enter':
+        toolContent = renderEnterPlanTool(m.input, m.result);
+        break;
+      case 'taskmgmt':
+        toolContent = renderTaskMgmtTool(toolName, m.input, m.result);
+        break;
+      case 'todo':
+        toolContent = renderTodoTool(m.input, m.result);
+        break;
       default:
         toolContent = renderGenericTool(toolName, m.input, m.result);
     }
@@ -658,10 +784,16 @@ function renderMessage(m, i) {
       <div class="tool-content">${toolContent}</div>
     </div>`;
   } else if (m.type === 'user') {
-    return `<div class="message message-user">${escapeHtml(m.content)}</div>`;
+    const userContent = stripSystemReminders(m.content);
+    // @ts-ignore - marked is loaded externally
+    const userHtml = typeof marked !== 'undefined' ? marked.parse(userContent) : escapeHtml(userContent);
+    return `<div class="message message-user">${userHtml}</div>`;
   } else if (m.content.startsWith('[User]:')) {
     // Legacy format
-    return `<div class="message message-user">${escapeHtml(m.content.slice(7).trim())}</div>`;
+    const legacyContent = stripSystemReminders(m.content.slice(7).trim());
+    // @ts-ignore - marked is loaded externally
+    const legacyHtml = typeof marked !== 'undefined' ? marked.parse(legacyContent) : escapeHtml(legacyContent);
+    return `<div class="message message-user">${legacyHtml}</div>`;
   } else {
     // Render markdown for assistant messages
     // @ts-ignore - marked is loaded externally
