@@ -928,6 +928,33 @@
       font-size: 0.8rem;
     }
 
+    .task-prompt p:first-child,
+    .task-result p:first-child {
+      margin-top: 0;
+    }
+
+    .task-prompt p:last-child,
+    .task-result p:last-child {
+      margin-bottom: 0;
+    }
+
+    .task-result {
+      margin-top: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--fg-muted);
+    }
+
+    .task-result pre {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      padding: 0.5rem;
+      overflow-x: auto;
+    }
+
+    .task-result code {
+      font-size: 0.7rem;
+    }
+
     /* Sidebar agent cards - more compact */
     .agent {
       background: var(--glass-bg);

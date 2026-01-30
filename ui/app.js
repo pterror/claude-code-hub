@@ -542,12 +542,13 @@ function renderTaskTool(input, result) {
   const subagentType = inp?.subagent_type || 'unknown';
   const prompt = inp?.prompt || '';
   const taskResult = result || '';
+  const md = typeof marked !== 'undefined' ? (/** @type {string} */ s) => marked.parse(s) : escapeHtml;
 
   return `
     <div class="task-info">
       <div class="task-type">${escapeHtml(subagentType)} agent</div>
-      <div class="task-prompt">${escapeHtml(prompt.slice(0, 200))}${prompt.length > 200 ? '...' : ''}</div>
-      ${taskResult ? `<div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--fg-muted);">${escapeHtml(taskResult.slice(0, 500))}</div>` : ''}
+      <div class="task-prompt">${md(prompt)}</div>
+      ${taskResult ? `<div class="task-result">${md(taskResult)}</div>` : ''}
     </div>`;
 }
 
