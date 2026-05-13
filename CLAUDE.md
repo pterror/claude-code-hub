@@ -56,28 +56,40 @@ Server runs on `http://localhost:3000` by default. Access via tailscale IP from 
 | `/agents/:id/message` | POST | Send follow-up message to agent |
 | `/ws` | WebSocket | Real-time updates for all agent activity |
 
-## Core Rule
+## Context Is The Only Scarce Resource
 
-**Note things down immediately:**
-- Bugs/issues → fix or add to TODO.md
-- Design decisions → docs/ or code comments
-- Future work → TODO.md
-- Key insights → this file
+Every byte that enters the main session stays in the main session for its entire lifetime. File contents, command output, search results, page text — once read, it lingers in cache and shapes every downstream token. There is no "just looking."
 
-**Triggers:** User corrects you, 2+ failed attempts, "aha" moment, framework quirk discovered → document before proceeding.
+**All exploration runs in subagents.** Investigations, audits, deep dives, surveys, "let me check," "let me find" — if the purpose of a tool sequence is to find out something you don't yet know, it runs in a subagent. Renaming the activity does not change what it is. The subagent returns a distilled summary; the raw output stays in the subagent.
 
-**Conversation is not memory.** Anything said in chat evaporates at session end. If it implies future behavior change, write it to CLAUDE.md immediately — or it will not happen.
+The main session holds only the durable artifacts you are producing: the edit, the commit, the doc update.
 
-**Warning — these phrases mean something needs to be written down right now:**
-- "I won't do X again" / "I'll remember to..." / "I've learned that..."
-- "Next time I'll..." / "From now on I'll..."
-- Any acknowledgement of a recurring error without a corresponding CLAUDE.md edit
+Inline tool use in the main context is reserved for:
+- Reading a known file at a known path
+- Edits/writes you're committing to
+- A single targeted lookup whose result you'll act on immediately
 
-**When the user corrects you:** Ask what rule would have prevented this, and write it before proceeding. **"The rule exists, I just didn't follow it" is never the diagnosis** — a rule that doesn't prevent the failure it describes is incomplete; fix the rule, not your behavior.
+If you find yourself running a second grep to refine the first, you should have spawned a subagent.
 
-**Something unexpected is a signal, not noise.** Surprising output, anomalous numbers, files containing what they shouldn't — stop and ask why before continuing. Don't accept anomalies and move on.
+Mechanical work across many files (applying the same change everywhere) → parallel subagents.
 
-**Do the work properly.** When asked to analyze X, actually read X - don't synthesize from conversation.
+## Durability
+
+Subagent reports, mid-session realizations, "I'll remember this" — none of these outlast the session. Anything worth keeping goes into CLAUDE.md, code, docs, or a commit. If it isn't written down, it is gone.
+
+**Commit completed work immediately.** After tests pass, commit. After each phase of a multi-phase plan, commit. Uncommitted work is lost work, and accumulated uncommitted phases lose isolation as well.
+
+## Authenticity
+
+When asked to analyze X, read X. Do not synthesize from conversation memory, prior summaries, or what the file probably says. Claims must correspond to evidence produced this session.
+
+**Something unexpected is a signal.** Surprising output, anomalous numbers, a file containing what it shouldn't — stop and find out why. Do not accept the anomaly and proceed.
+
+## Discipline
+
+Corrections from the user are conversation, not material for new rules. A single correction does not warrant a CLAUDE.md edit. Rules are added when a failure mode is observed repeatedly and the rule names the failure it prevents.
+
+Do not announce actions ("I will now…"). Act.
 
 ## Behavioral Patterns
 
@@ -92,21 +104,6 @@ From ecosystem-wide session analysis:
 ## Workflow
 
 **Minimize file churn.** When editing a file, read it once, plan all changes, and apply them in one pass.
-
-**Always commit completed work.** After tests pass, commit immediately — don't wait to be asked. When a plan has multiple phases, commit after each phase passes. Uncommitted work is lost work.
-
-## Context Management
-
-**All exploration runs in subagents. No exceptions.** Any tool call whose purpose is "find out what's here" — grep, find, broad reads, surveys, audits — belongs in a subagent. Raw exploratory output in the main context is active context poisoning: it lingers in cache, shapes downstream reasoning, can't be unsent. The subagent returns a distilled summary; the noise stays in the subagent.
-
-Inline tool use in the main context is reserved for:
-- Reading a known file at a known path
-- Edits/writes you're committing to
-- A single targeted lookup whose result you'll act on immediately
-
-If you find yourself running a second grep to refine the first, you should have spawned a subagent.
-
-Mechanical work across many files (applying the same change everywhere) → parallel subagents.
 
 ## Session Handoff
 
@@ -123,24 +120,15 @@ Use plan mode as a handoff mechanism when:
 
 ## Commit Convention
 
-Use conventional commits: `type(scope): message`
+Conventional commits: `type(scope): message`
 
-Types:
-- `feat` - New feature
-- `fix` - Bug fix
-- `refactor` - Code change that neither fixes a bug nor adds a feature
-- `docs` - Documentation only
-- `chore` - Maintenance (deps, CI, etc.)
-- `test` - Adding or updating tests
+Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`.
 
-## Negative Constraints
+## Hard Constraints
 
-Do not:
-- Announce actions ("I will now...") - just do them
-- Leave work uncommitted
-- Use interactive git commands (`git add -p`, `git add -i`, `git rebase -i`) — these block on stdin and hang in non-interactive shells; stage files by name instead
-- Over-engineer - this is glue code, keep it simple
-- Add "enterprise" features - YAGNI
-- Use path dependencies in Cargo.toml - causes clippy to stash changes across repos
-- Use `--no-verify` - fix the issue or fix the hook
-- Assume tools are missing - check if `nix develop` is available for the right environment
+- No `--no-verify`. Fix the issue or fix the hook.
+- No interactive git (`git add -p`, `git add -i`, `git rebase -i`) — these block on stdin and hang.
+- No assuming a tool is missing without checking `nix develop`.
+- No over-engineering — this is glue code, keep it simple.
+- No "enterprise" features — YAGNI.
+- No path dependencies in Cargo.toml — they couple repos and break independent publishing.
