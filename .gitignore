@@ -4,3 +4,8 @@ dist/
 *.log
 .direnv/
 hub.db
+
+# Normalize
+.normalize/*
+!.normalize/config.toml
+!.normalize/memory/
